@@ -2,72 +2,110 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs</title>
+  <title>1glwfs</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
-    body { margin: 0; padding: 0; overflow: hidden; background: #000; }
-    #cesiumContainer { width: 100%; height: 100%; }
+    body, html { margin: 0; padding: 0; overflow: hidden; background: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; width: 100%; height: 100%; color: #fff; }
+    #cesiumContainer { width: 100%; height: 100%; display: none; position: absolute; top: 0; left: 0; z-index: 1; }
     
-    /* Top Left Unified Menu Header */
-    #brand-menu { position: absolute; top: 20px; left: 20px; z-index: 1000; font-family: sans-serif; }
-    #brand-logo { color: #fff; background: rgba(0,0,0,0.8); padding: 10px 20px; font-weight: bold; border-radius: 4px; border: 1px solid #3182ce; cursor: pointer; user-select: none; }
-    
-    /* Dropdown UI Configuration */
-    #dropdown-content { display: none; position: absolute; top: 100%; left: 0; background: rgba(0,0,0,0.9); margin-top: 5px; border-radius: 4px; border: 1px solid #4a5568; width: 280px; overflow: hidden; }
-    .dropdown-item { color: #fff; padding: 12px 15px; font-size: 14px; text-decoration: none; display: block; cursor: pointer; transition: background 0.2s; }
+    /* Global Menu Overlay System */
+    #home-screen { position: absolute; width: 100%; height: 100%; background: radial-gradient(circle at center, #1a202c 0%, #0f172a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; }
+    .menu-card { background: rgba(30, 41, 59, 0.7); border: 1px solid #3182ce; padding: 40px; border-radius: 12px; backdrop-filter: blur(8px); text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); max-width: 450px; }
+    h1 { margin: 0 0 10px 0; font-size: 42px; tracking-letter: 2px; color: #fff; text-shadow: 0 0 10px rgba(49,130,206,0.5); font-weight: 800; }
+    .subtitle { color: #94a3b8; margin-bottom: 30px; font-size: 15px; }
+    .btn-main { display: block; width: 100%; background: #2563eb; color: #fff; padding: 14px; margin: 12px 0; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.2s; box-sizing: border-box; }
+    .btn-main:hover { background: #3b82f6; transform: translateY(-1px); }
+    .btn-secondary { background: #475569; }
+    .btn-secondary:hover { background: #64748b; }
+    .file-load-box { margin-top: 15px; border-top: 1px solid #334155; padding-top: 15px; }
+
+    /* Top Left Integrated Dropdown UI Container */
+    #brand-menu { display: none; position: absolute; top: 20px; left: 20px; z-index: 1000; }
+    #brand-logo { color: #fff; background: rgba(15,23,42,0.9); padding: 10px 20px; font-weight: bold; border-radius: 4px; border: 1px solid #3182ce; cursor: pointer; user-select: none; backdrop-filter: blur(4px); }
+    #dropdown-content { display: none; position: absolute; top: 100%; left: 0; background: rgba(15,23,42,0.95); margin-top: 5px; border-radius: 4px; border: 1px solid #4a5568; width: 280px; overflow: hidden; }
+    .dropdown-item { color: #fff; padding: 12px 15px; font-size: 14px; text-decoration: none; display: block; cursor: pointer; }
     .dropdown-item:hover { background: #3182ce; }
     
-    /* Integrated Flight Control Panel Layout */
-    #controls-panel { display: none; color: #fff; background: rgba(0, 0, 0, 0.85); padding: 15px; border-radius: 4px; border: 1px solid #718096; margin-top: 5px; width: 280px; font-size: 13px; line-height: 1.5; font-family: sans-serif; max-height: 75vh; overflow-y: auto; }
-    #controls-panel h4 { margin: 12px 0 6px 0; color: #3182ce; font-size: 14px; border-bottom: 1px solid #4a5568; padding-bottom: 4px; }
+    /* Config Panel Frame layouts */
+    #controls-panel { display: none; color: #fff; background: rgba(15,23,42,0.9); padding: 15px; border-radius: 4px; border: 1px solid #475569; margin-top: 5px; width: 280px; font-size: 13px; line-height: 1.5; max-height: 75vh; overflow-y: auto; backdrop-filter: blur(4px); }
+    #controls-panel h4 { margin: 12px 0 6px 0; color: #60a5fa; font-size: 14px; border-bottom: 1px solid #334155; padding-bottom: 4px; }
     #controls-panel h4:first-of-type { margin-top: 0; }
     
-    /* Smoothing Slider Configuration Styling */
     .slider-container { margin-top: 8px; padding-top: 4px; }
     .slider-container label { display: block; font-weight: bold; margin-bottom: 4px; color: #cbd5e0; }
     .slider-row { display: flex; align-items: center; gap: 8px; }
-    .slider-ui { flex-grow: 1; cursor: pointer; accent-color: #3182ce; }
-    .input-ui { width: 55px; background: #1a202c; border: 1px solid #4a5568; color: #fff; padding: 2px 4px; font-family: monospace; border-radius: 4px; text-align: center; }
-    .text-input-ui { width: 100%; background: #1a202c; border: 1px solid #4a5568; color: #fff; padding: 5px; border-radius: 4px; box-sizing: border-box; cursor: pointer; }
-    .text-input-ui:focus { border-color: #3182ce; background: #2d3748; }
+    .slider-ui { flex-grow: 1; cursor: pointer; accent-color: #2563eb; }
+    .input-ui { width: 55px; background: #0f172a; border: 1px solid #475569; color: #fff; padding: 2px 4px; font-family: monospace; border-radius: 4px; text-align: center; }
+    .text-input-ui { width: 100%; background: #0f172a; border: 1px solid #475569; color: #fff; padding: 6px; border-radius: 4px; box-sizing: border-box; }
+    
+    .file-label { display: block; background: #1e3a8a; color: #fff; text-align: center; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 5px; }
+    .file-label:hover { background: #1e40af; }
+    .btn-action { width: 100%; padding: 8px; font-weight: bold; color: white; border: none; border-radius: 4px; cursor: pointer; margin: 4px 0; }
+    .btn-save { background: #16a34a; }
+    .btn-save:hover { background: #22c55e; }
+    .btn-export { background: #9333ea; }
+    .btn-export:hover { background: #a855f7; }
 
-    /* File Import Button UI styling */
-    .file-input-wrapper { margin-top: 12px; padding-top: 10px; border-top: 1px solid #4a5568; }
-    .file-label { display: block; background: #2b6cb0; color: #fff; text-align: center; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-    .file-label:hover { background: #3182ce; }
-    #glb-loader { display: none; }
+    #crosshair { display: none; position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; z-index: 1000; }
+    #editor-indicator { display: none; position: absolute; top: 20px; right: 20px; background: rgba(220,38,38,0.85); color: #fff; padding: 8px 15px; font-weight: bold; border-radius: 4px; font-size: 13px; z-index: 5000; pointer-events: none; border: 1px solid #f87171; }
 
-    #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; z-index: 1000; }
-
-    /* Instrument HUD Layout */
-    #horizon-indicator { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 120px; height: 120px; background: #1a202c; border: 3px solid #718096; border-radius: 50%; overflow: hidden; z-index: 1002; }
-    #horizon-disc { width: 120px; height: 120px; background: linear-gradient(to bottom, #2b6cb0 50%, #744210 50%); transition: transform 0.05s linear; position: relative; }
+    /* HUD Metrics Displays */
+    #horizon-indicator { display: none; position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 120px; height: 120px; background: #0f172a; border: 3px solid #475569; border-radius: 50%; overflow: hidden; z-index: 1002; }
+    #horizon-disc { width: 120px; height: 120px; background: linear-gradient(to bottom, #2563eb 50%, #78350f 50%); transition: transform 0.05s linear; position: relative; }
     #horizon-degrees { position: absolute; width: 100%; text-align: center; top: 50%; transform: translateY(-50%); color: #fff; font-family: monospace; font-size: 12px; font-weight: bold; text-shadow: 1px 1px 2px #000; pointer-events: none; }
-    
-    #alt-indicator { position: absolute; bottom: 30px; left: calc(50% - 160px); width: 80px; height: 40px; background: rgba(0,0,0,0.7); border: 2px solid #718096; color: #0f0; font-family: monospace; text-align: center; font-size: 12px; border-radius: 4px; z-index: 1002; padding-top: 5px; }
-    #spd-indicator { position: absolute; bottom: 30px; left: calc(50% + 90px); width: 80px; height: 40px; background: rgba(0,0,0,0.7); border: 2px solid #718096; color: #0f0; font-family: monospace; text-align: center; font-size: 12px; border-radius: 4px; z-index: 1002; padding-top: 5px; }
-    
-    #pause-overlay { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ff0000; font-family: sans-serif; font-size: 32px; font-weight: bold; background: rgba(0,0,0,0.8); padding: 10px 30px; border-radius: 8px; border: 2px solid #ff0000; z-index: 2000; pointer-events: none; }
+    #alt-indicator { display: none; position: absolute; bottom: 30px; left: calc(50% - 160px); width: 80px; height: 40px; background: rgba(15,23,42,0.8); border: 2px solid #475569; color: #0f0; font-family: monospace; text-align: center; font-size: 12px; border-radius: 4px; z-index: 1002; padding-top: 5px; }
+    #spd-indicator { display: none; position: absolute; bottom: 30px; left: calc(50% + 90px); width: 80px; height: 40px; background: rgba(15,23,42,0.8); border: 2px solid #475569; color: #0f0; font-family: monospace; text-align: center; font-size: 12px; border-radius: 4px; z-index: 1002; padding-top: 5px; }
+    #pause-overlay { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ef4444; font-family: sans-serif; font-size: 32px; font-weight: bold; background: rgba(15,23,42,0.9); padding: 10px 30px; border-radius: 8px; border: 2px solid #ef4444; z-index: 2000; pointer-events: none; }
+    #view-alert { display: none; position: absolute; bottom: 180px; left: 50%; transform: translateX(-50%); background: rgba(37,99,235,0.9); color: white; padding: 8px 20px; border-radius: 20px; font-weight: bold; font-size: 14px; z-index: 5000; pointer-events: none; }
   </style>
 </head>
 <body>
+
+  <div id="home-screen">
+    <div class="menu-card">
+      <h1>GLWFS</h1>
+      <div class="subtitle">Aviation Engine & Asset Rigging Workbench</div>
+      <button class="btn-main" onclick="bootProgram('sim')">Enter Flight Simulator</button>
+      <button class="btn-main btn-secondary" onclick="bootProgram('editor')">Launch Plane Editor</button>
+      
+      <div class="file-load-box">
+        <label for="profile-uploader" class="file-label" style="background:#4b5563;">Import Configuration Profile (.json)</label>
+        <input type="file" id="profile-uploader" accept=".json" style="display:none;" onchange="loadConfigProfile(event)">
+      </div>
+    </div>
+  </div>
+
   <div id="cesiumContainer"></div>
   <div id="crosshair"></div>
+  <div id="editor-indicator">EDITOR WORKBENCH MODE</div>
   <div id="pause-overlay">PAUSED</div>
+  <div id="view-alert">View Swapped</div>
   
   <div id="brand-menu">
-    <div id="brand-logo" onclick="toggleDropdown()">GLWFS ▾</div>
+    <div id="brand-logo" onclick="toggleDropdown()">SYSTEM MENU ▾</div>
     <div id="dropdown-content">
-      <div class="dropdown-item" onclick="toggleControlsPanel()">Flight Controls & Mesh</div>
+      <div class="dropdown-item" id="menu-toggle-text" onclick="toggleControlsPanel()">Flight Controls & Mesh</div>
+      <div class="dropdown-item" style="color:#ef4444; font-weight:bold; border-top:1px solid #334155;" onclick="exitToHome()">Exit to Main Menu</div>
     </div>
+    
     <div id="controls-panel">
-      <h4>Navigation & Control</h4>
-      • <b>Mouse</b>: Pitch & Roll dynamics<br>
-      • <b>Scroll Wheel</b>: Camera zoom distance<br>
-      • <b>P Key</b>: Pause simulator physics<br>
+      <div id="sim-instructions">
+        <h4>Navigation & Control</h4>
+        • <b>Mouse</b>: Pitch & Roll dynamics<br>
+        • <b>Scroll Wheel</b>: Distance zoom<br>
+        • <b>P Key</b>: Pause physics tracking<br>
+        • <b>C Key</b>: Cycle Custom Views (<span id="view-count-lbl">0</span> saved)<br>
+      </div>
+
+      <div id="editor-instructions" style="display:none;">
+        <h4>Camera Flight Keys</h4>
+        • <b>W / S</b>: Forward / Backward translation<br>
+        • <b>A / D</b>: Left / Right tracking step<br>
+        • <b>Mouse Drag</b>: Look around mesh space<br>
+      </div>
       
-      <div class="slider-container" style="border-top: 1px solid #4a5568; padding-top: 8px;">
+      <div class="slider-container" id="smoothing-block" style="border-top: 1px solid #334155; padding-top: 8px;">
         <label>Rotation Smoothing</label>
         <div class="slider-row">
           <input type="range" id="smoothSlider" class="slider-ui" min="0.5" max="1.0" step="0.05" value="0.50" oninput="syncControl('smooth', this.value)">
@@ -75,22 +113,27 @@
         </div>
       </div>
 
-      <div class="file-input-wrapper">
-        <label for="glb-loader" class="file-label">Load Plane GLB</label>
-        <input type="file" id="glb-loader" accept=".glb" onchange="handleGLBLoad(event)">
+      <h4>Asset Ingestion Pipeline</h4>
+      <label for="glb-loader" class="file-label">Load Plane GLB Mesh</label>
+      <input type="file" id="glb-loader" accept=".glb" style="display:none;" onchange="handleGLBLoad(event)">
+
+      <h4>Interactive Component Setup</h4>
+      <div class="slider-container">
+        <label>Propeller Node Selector</label>
+        <input type="text" id="propNodeInput" class="text-input-ui" readonly placeholder="Click here, then click model..." onclick="setActiveCapture('prop')">
+      </div>
+      <div class="slider-container">
+        <label>Flaps Component Selector</label>
+        <input type="text" id="flapNodeInput" class="text-input-ui" readonly placeholder="Click here, then click model..." onclick="setActiveCapture('flap')">
       </div>
 
-      <h4>Component Click-to-Select</h4>
-      <div class="slider-container">
-        <label>Propeller Part Name</label>
-        <input type="text" id="propNodeInput" class="text-input-ui" readonly placeholder="Click here, then click plane part..." onclick="setActiveCapture('prop')">
-      </div>
-      <div class="slider-container">
-        <label>Flaps/Control Surfaces Name</label>
-        <input type="text" id="flapNodeInput" class="text-input-ui" readonly placeholder="Click here, then click plane part..." onclick="setActiveCapture('flap')">
+      <div id="editor-camera-block" style="display:none;">
+        <h4>Camera View Mapping</h4>
+        <button class="btn-action btn-save" onclick="captureCameraView()">Capture & Save Camera View</button>
+        <div style="color:#94a3b8; font-size:11px; margin-top:2px;">Saves current view offset coordinates into the engine cyclic loop.</div>
       </div>
 
-      <h4>Model Visual Scale & Pos Offsets</h4>
+      <h4>Visual Configuration Metrics</h4>
       <div class="slider-container">
         <label>Size Multiplier</label>
         <div class="slider-row">
@@ -99,56 +142,57 @@
         </div>
       </div>
       <div class="slider-container">
-        <label>Local Mesh X Offset</label>
+        <label>Mesh Translation X Offset</label>
         <div class="slider-row">
           <input type="range" id="offsetXSlider" class="slider-ui" min="-50" max="50" value="0" oninput="syncControl('offsetX', this.value)">
           <input type="text" id="offsetXInput" class="input-ui" value="0" onchange="syncControl('offsetX', this.value)">
         </div>
       </div>
       <div class="slider-container">
-        <label>Local Mesh Y Offset</label>
+        <label>Mesh Translation Y Offset</label>
         <div class="slider-row">
           <input type="range" id="offsetYSlider" class="slider-ui" min="-50" max="50" value="0" oninput="syncControl('offsetY', this.value)">
           <input type="text" id="offsetYInput" class="input-ui" value="0" onchange="syncControl('offsetY', this.value)">
         </div>
       </div>
       <div class="slider-container">
-        <label>Local Mesh Z Offset</label>
+        <label>Mesh Translation Z Offset</label>
         <div class="slider-row">
           <input type="range" id="offsetZSlider" class="slider-ui" min="-50" max="50" value="0" oninput="syncControl('offsetZ', this.value)">
           <input type="text" id="offsetZInput" class="input-ui" value="0" onchange="syncControl('offsetZ', this.value)">
         </div>
       </div>
 
-      <h4>Model Axis Rot Offsets (Deg)</h4>
+      <h4>Axis Orientation Matrix Offset (Deg)</h4>
       <div class="slider-container">
-        <label>Heading Offset</label>
+        <label>Heading Alignment Offset</label>
         <div class="slider-row">
           <input type="range" id="offsetHSlider" class="slider-ui" min="0" max="360" value="270" oninput="syncControl('offsetH', this.value)">
           <input type="text" id="offsetHInput" class="input-ui" value="270" onchange="syncControl('offsetH', this.value)">
         </div>
       </div>
       <div class="slider-container">
-        <label>Pitch Offset</label>
+        <label>Pitch Calibration Offset</label>
         <div class="slider-row">
           <input type="range" id="offsetPSlider" class="slider-ui" min="0" max="360" value="0" oninput="syncControl('offsetP', this.value)">
           <input type="text" id="offsetPInput" class="input-ui" value="0" onchange="syncControl('offsetP', this.value)">
         </div>
       </div>
       <div class="slider-container">
-        <label>Roll Offset</label>
+        <label>Roll Calibration Offset</label>
         <div class="slider-row">
           <input type="range" id="offsetRSlider" class="slider-ui" min="0" max="360" value="0" oninput="syncControl('offsetR', this.value)">
           <input type="text" id="offsetRInput" class="input-ui" value="0" onchange="syncControl('offsetR', this.value)">
         </div>
       </div>
+
+      <h4 style="margin-top:15px; border-top:1px solid #334155; padding-top:10px;">Workbench Export System</h4>
+      <button class="btn-action btn-export" onclick="exportConfigProfile()">Export Plane Configuration File</button>
     </div>
   </div>
   
   <div id="horizon-indicator">
-    <div id="horizon-disc">
-      <div id="horizon-degrees">0°</div>
-    </div>
+    <div id="horizon-disc"><div id="horizon-degrees">0°</div></div>
   </div>
   <div id="alt-indicator">ALT<br><span id="alt-val">0</span>m</div>
   <div id="spd-indicator">SPD<br><span id="spd-val">0</span>kn</div>
@@ -156,260 +200,310 @@
   <script>
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXvyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Lyapi5jZXNpdW0uY29tIiwiYXVkIjoibGF3cmVuY2UyMTMxMl9kZWZhdWx0IiwiaWF0IjoxNzgxNzg0NDE5fQ.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
     
+    let currentEngineMode = 'menu'; // menu, sim, editor
     const viewer = new Cesium.Viewer('cesiumContainer', { 
-      baseLayerPicker: false, 
-      animation: false, 
-      timeline: false,
-      geocoder: true,
+      baseLayerPicker: false, animation: false, timeline: false, geocoder: true,
       baseLayer: Cesium.ImageryLayer.fromProviderAsync(Cesium.ArcGisMapServerImageryProvider.fromUrl('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'))
     });
     
     viewer.scene.globe.depthTestAgainstTerrain = true;
+    Cesium.createOsmBuildingsAsync().then((tileset) => { viewer.scene.primitives.add(tileset); });
 
-    Cesium.createOsmBuildingsAsync().then((tileset) => { 
-      viewer.scene.primitives.add(tileset); 
-    });
+    // Aircraft State Transform Metrics
+    let lon = -74.0445, lat = 40.6892, alt = 200.0, heading = 0;
+    let pitch = 0, roll = 0, targetPitch = 0, targetRoll = 0, smoothingFactor = 0.50;      
+    
+    // Config profile object data blocks
+    let profileData = {
+      modelOffsetH: 270, modelOffsetP: 0, modelOffsetR: 0,
+      modelOffsetX: 0, modelOffsetY: 0, modelOffsetZ: 0,
+      modelScale: 1.0, propNodeName: "", flapNodeName: "",
+      savedCameraViews: [] // Store array matrices for custom views
+    };
 
-    let lon = -74.0445;
-    let lat = 40.6892;
-    let alt = 200.0; 
-    let heading = 0;
-    
-    let pitch = 0, roll = 0;         
-    let targetPitch = 0, targetRoll = 0; 
-    let smoothingFactor = 0.50;      
-    
-    // DEFAULT ALIGNMENT SET TO 270 DEGREES
-    let modelOffsetH = 270;
-    let modelOffsetP = 0;
-    let modelOffsetR = 0;
-    let modelOffsetX = 0, modelOffsetY = 0, modelOffsetZ = 0;
-    let modelScale = 1.0;
-    
-    let propNodeName = "";
-    let flapNodeName = "";
     let propRotationAngle = 0;
-    let activeCaptureMode = null; // Track selection targets dynamically
+    let activeCaptureMode = null;
+    let currentViewIndex = -1; // -1 represents structural dynamic default back tail camera tracking
 
-    let camHeading = 0;
-    const speed = 0.000025; 
-    let camDistance = 40; 
-    let isPaused = false;
-    let loadedBlobURL = null;
+    let camHeading = 0, camDistance = 40, isPaused = false, loadedBlobURL = null;
+    let editorCamOffset = new Cesium.Cartesian3(0, -40, 10); // Standard layout view initialization vectors
 
-    // Pure Tracking Vector Root Position Property
-    const positionProperty = new Cesium.CallbackProperty(() => {
-      return Cesium.Cartesian3.fromDegrees(lon, lat, alt);
-    }, false);
-
-    // Global transform rotation handling
+    const positionProperty = new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false);
     const orientationProperty = new Cesium.CallbackProperty(() => {
       const center = positionProperty.getValue(viewer.clock.currentTime);
-      const hpr = new Cesium.HeadingPitchRoll(
-        Cesium.Math.toRadians(heading), 
-        Cesium.Math.toRadians(roll), 
-        Cesium.Math.toRadians(pitch)
-      );
+      const hpr = new Cesium.HeadingPitchRoll(Cesium.Math.toRadians(heading), Cesium.Math.toRadians(roll), Cesium.Math.toRadians(pitch));
       return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
     }, false);
 
     let airplane = viewer.entities.add({
-      position: positionProperty,
-      orientation: orientationProperty,
+      position: positionProperty, orientation: orientationProperty,
       box: { dimensions: new Cesium.Cartesian3(1.5, 8.0, 1.5), material: Cesium.Color.RED }
     });
+
+    // Boot Routine Initializer
+    function bootProgram(mode) {
+      currentEngineMode = mode;
+      document.getElementById('home-screen').style.display = 'none';
+      document.getElementById('cesiumContainer').style.display = 'block';
+      document.getElementById('brand-menu').style.display = 'block';
+      
+      if(mode === 'sim') {
+        document.getElementById('crosshair').style.display = 'block';
+        document.getElementById('horizon-indicator').style.display = 'block';
+        document.getElementById('alt-indicator').style.display = 'block';
+        document.getElementById('spd-indicator').style.display = 'block';
+        document.getElementById('sim-instructions').style.display = 'block';
+        document.getElementById('smoothing-block').style.display = 'block';
+        document.getElementById('editor-instructions').style.display = 'none';
+        document.getElementById('editor-camera-block').style.display = 'none';
+        document.getElementById('editor-indicator').style.display = 'none';
+        document.getElementById('menu-toggle-text').innerText = "Flight Controls & Mesh";
+        viewer.useDefaultRenderLoop = true;
+      } else if (mode === 'editor') {
+        document.getElementById('crosshair').style.display = 'none';
+        document.getElementById('horizon-indicator').style.display = 'none';
+        document.getElementById('alt-indicator').style.display = 'none';
+        document.getElementById('spd-indicator').style.display = 'none';
+        document.getElementById('sim-instructions').style.display = 'none';
+        document.getElementById('smoothing-block').style.display = 'none';
+        document.getElementById('editor-instructions').style.display = 'block';
+        document.getElementById('editor-camera-block').style.display = 'block';
+        document.getElementById('editor-indicator').style.display = 'block';
+        document.getElementById('menu-toggle-text').innerText = "Asset Rigging Workbench";
+        
+        // Reset local editor space calibration position matrix
+        editorCamOffset = new Cesium.Cartesian3(0, -40, 5);
+        currentViewIndex = -1;
+      }
+    }
+
+    function exitToHome() {
+      currentEngineMode = 'menu';
+      document.getElementById('home-screen').style.display = 'flex';
+      document.getElementById('cesiumContainer').style.display = 'none';
+      document.getElementById('brand-menu').style.display = 'none';
+      document.getElementById('controls-panel').style.display = 'none';
+      document.getElementById('dropdown-content').style.display = 'none';
+    }
 
     function handleGLBLoad(event) {
       const file = event.target.files[0];
       if (!file) return;
-
       const reader = new FileReader();
       reader.onload = function(e) {
         const arrayBuffer = e.target.result;
         const blob = new Blob([arrayBuffer], { type: "model/gltf-binary" });
         if (loadedBlobURL) URL.revokeObjectURL(loadedBlobURL);
         loadedBlobURL = URL.createObjectURL(blob);
-
-        viewer.entities.remove(airplane);
-
-        // Fixed Internal Model property logic using local node translation matrices
-        airplane = viewer.entities.add({
-          position: positionProperty,
-          orientation: orientationProperty,
-          model: {
-            uri: loadedBlobURL,
-            minimumPixelSize: 64,
-            scale: new Cesium.CallbackProperty(() => modelScale, false),
-            runAnimations: false
-          }
-        });
+        rebuildAircraftEntity();
       };
       reader.readAsArrayBuffer(file);
+    }
+
+    function rebuildAircraftEntity() {
+      if (!loadedBlobURL) return;
+      viewer.entities.remove(airplane);
+      airplane = viewer.entities.add({
+        position: positionProperty, orientation: orientationProperty,
+        model: { uri: loadedBlobURL, minimumPixelSize: 64, scale: new Cesium.CallbackProperty(() => profileData.modelScale, false), runAnimations: false }
+      });
+    }
+
+    // Camera Custom Profile Frame Capture Logic
+    function captureCameraView() {
+      // Calculate current transform range parameters relative to the core target geometry root matrix
+      const center = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+      const viewMatrix = viewer.camera.viewMatrix;
+      
+      // Save current localized offset position coordinates directly
+      const savedView = {
+        heading: viewer.camera.heading,
+        pitch: viewer.camera.pitch,
+        range: Cesium.Cartesian3.distance(viewer.camera.position, center)
+      };
+      
+      profileData.savedCameraViews.push(savedView);
+      document.getElementById('view-count-lbl').innerText = profileData.savedCameraViews.length;
+      
+      const alertBox = document.getElementById('view-alert');
+      alertBox.innerText = `View #${profileData.savedCameraViews.length} Captured!`;
+      alertBox.style.display = 'block';
+      setTimeout(() => { alertBox.style.display = 'none'; }, 2000);
+    }
+
+    // Export System Config Routine
+    function exportConfigProfile() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(profileData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "plane_profile_config.json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    // Configuration Uploader & Loader Parser Interface
+    function loadConfigProfile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          profileData = { ...profileData, ...parsed };
+          
+          // Re-sync all internal control configurations inside layout pipeline frame targets
+          document.getElementById('propNodeInput').value = profileData.propNodeName;
+          document.getElementById('flapNodeInput').value = profileData.flapNodeName;
+          document.getElementById('view-count-lbl').innerText = profileData.savedCameraViews.length;
+          
+          syncControl('scale', profileData.modelScale);
+          syncControl('offsetX', profileData.modelOffsetX);
+          syncControl('offsetY', profileData.modelOffsetY);
+          syncControl('offsetZ', profileData.modelOffsetZ);
+          syncControl('offsetH', profileData.modelOffsetH);
+          syncControl('offsetP', profileData.modelOffsetP);
+          syncControl('offsetR', profileData.modelOffsetR);
+          
+          alert("Profile configurations loaded successfully!");
+        } catch(err) {
+          alert("Error parsing profile layout configuration JSON.");
+        }
+      };
+      reader.readAsText(file);
     }
 
     function setActiveCapture(mode) {
       activeCaptureMode = mode;
       const targetInput = mode === 'prop' ? 'propNodeInput' : 'flapNodeInput';
-      document.getElementById(targetInput).value = "AWAITING CLICK ON PLANE...";
+      document.getElementById(targetInput).value = "CLICK ON PLANE GRAPHIC PART...";
     }
 
-    // Interactive Mesh Raycasting Listener Script block
     const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
     handler.setInputAction(function (click) {
       if (!activeCaptureMode) return;
-      
       const pickedObject = viewer.scene.pick(click.position);
-      // Ensure click hits a structural glb subnode component
       if (Cesium.defined(pickedObject) && pickedObject.node) {
         const detectedNodeName = pickedObject.node.name;
-        
         if (activeCaptureMode === 'prop') {
-          propNodeName = detectedNodeName;
-          document.getElementById('propNodeInput').value = detectedNodeName;
+          profileData.propNodeName = detectedNodeName; document.getElementById('propNodeInput').value = detectedNodeName;
         } else if (activeCaptureMode === 'flap') {
-          flapNodeName = detectedNodeName;
-          document.getElementById('flapNodeInput').value = detectedNodeName;
+          profileData.flapNodeName = detectedNodeName; document.getElementById('flapNodeInput').value = detectedNodeName;
         }
-        activeCaptureMode = null; // Release capture pipe state lock safely
+        activeCaptureMode = null;
       }
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
     function syncControl(type, val) {
-      const numVal = parseFloat(val);
-      if (isNaN(numVal)) return;
+      const numVal = parseFloat(val); if (isNaN(numVal)) return;
+      const types = {
+        smooth: () => { smoothingFactor = Math.max(0.5, Math.min(1.0, numVal)); document.getElementById('smoothSlider').value = smoothingFactor; document.getElementById('smoothInput').value = smoothingFactor.toFixed(2); },
+        scale: () => { profileData.modelScale = Math.max(1, numVal); document.getElementById('scaleSlider').value = numVal; document.getElementById('scaleInput').value = numVal; },
+        offsetX: () => { profileData.modelOffsetX = numVal; document.getElementById('offsetXSlider').value = numVal; document.getElementById('offsetXInput').value = numVal; },
+        offsetY: () => { profileData.modelOffsetY = numVal; document.getElementById('offsetYSlider').value = numVal; document.getElementById('offsetYInput').value = numVal; },
+        offsetZ: () => { profileData.modelOffsetZ = numVal; document.getElementById('offsetZSlider').value = numVal; document.getElementById('offsetZInput').value = numVal; },
+        offsetH: () => { profileData.modelOffsetH = numVal; document.getElementById('offsetHSlider').value = numVal; document.getElementById('offsetHInput').value = numVal; },
+        offsetP: () => { profileData.modelOffsetP = numVal; document.getElementById('offsetPSlider').value = numVal; document.getElementById('offsetPInput').value = numVal; },
+        offsetR: () => { profileData.modelOffsetR = numVal; document.getElementById('offsetRSlider').value = numVal; document.getElementById('offsetRInput').value = numVal; }
+      };
+      if(types[type]) types[type]();
+    }
 
-      if (type === 'smooth') {
-        smoothingFactor = Math.max(0.5, Math.min(1.0, numVal));
-        document.getElementById('smoothSlider').value = smoothingFactor;
-        document.getElementById('smoothInput').value = smoothingFactor.toFixed(2);
-      } else if (type === 'scale') {
-        modelScale = Math.max(1, numVal);
-        document.getElementById('scaleSlider').value = modelScale;
-        document.getElementById('scaleInput').value = modelScale;
-      } else if (type === 'offsetX') {
-        modelOffsetX = numVal; document.getElementById('offsetXSlider').value = numVal; document.getElementById('offsetXInput').value = numVal;
-      } else if (type === 'offsetY') {
-        modelOffsetY = numVal; document.getElementById('offsetYSlider').value = numVal; document.getElementById('offsetYInput').value = numVal;
-      } else if (type === 'offsetZ') {
-        modelOffsetZ = numVal; document.getElementById('offsetZSlider').value = numVal; document.getElementById('offsetZInput').value = numVal;
-      } else if (type === 'offsetH') {
-        modelOffsetH = numVal; document.getElementById('offsetHSlider').value = numVal; document.getElementById('offsetHInput').value = numVal;
-      } else if (type === 'offsetP') {
-        modelOffsetP = numVal; document.getElementById('offsetPSlider').value = numVal; document.getElementById('offsetPInput').value = numVal;
-      } else if (type === 'offsetR') {
-        modelOffsetR = numVal; document.getElementById('offsetRSlider').value = numVal; document.getElementById('offsetRInput').value = numVal;
+    // Real-time Editor Keyboard Handling Logic Matrices
+    const activeKeys = {};
+    window.addEventListener('keydown', (e) => { 
+      activeKeys[e.key.toLowerCase()] = true; 
+      
+      // Cycle Camera Profile Matrix Routine
+      if (e.key.toLowerCase() === 'c' && currentEngineMode === 'sim') {
+        if (profileData.savedCameraViews.length > 0) {
+          currentViewIndex = (currentViewIndex + 1) >= profileData.savedCameraViews.length ? -1 : currentViewIndex + 1;
+          const alertBox = document.getElementById('view-alert');
+          alertBox.innerText = currentViewIndex === -1 ? "View: Standard Tail Follow" : `View: Custom Position Cam #${currentViewIndex + 1}`;
+          alertBox.style.display = 'block';
+          setTimeout(() => { alertBox.style.display = 'none'; }, 1500);
+        }
       }
-    }
-
-    function toggleDropdown() {
-      const display = document.getElementById('dropdown-content').style.display;
-      document.getElementById('dropdown-content').style.display = (display === 'block') ? 'none' : 'block';
-    }
-
-    function toggleControlsPanel() {
-      const panel = document.getElementById('controls-panel');
-      panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
-      document.getElementById('dropdown-content').style.display = 'none';
-    }
-
-    window.addEventListener('click', function(e) {
-      if (!document.getElementById('brand-menu').contains(e.target) && !e.target.classList.contains('text-input-ui')) {
-        document.getElementById('dropdown-content').style.display = 'none';
-      }
-    });
-
-    viewer.geocoder.viewModel.complete.addEventListener(() => {
-      const camCartographic = viewer.scene.camera.positionCartographic;
-      lon = Cesium.Math.toDegrees(camCartographic.longitude);
-      lat = Cesium.Math.toDegrees(camCartographic.latitude);
-      alt = 200.0; heading = 0; camHeading = 0; pitch = 0; targetPitch = 0; roll = 0; targetRoll = 0;
-    });
-
-    let mouseX = 0, mouseY = 0;
-    window.addEventListener('mousemove', (e) => {
-      if (isPaused) return;
-      mouseX = (e.clientX / window.innerWidth) * 2 - 1;
-      mouseY = 0 - ((e.clientY / window.innerHeight) * 2 - 1);
-    });
-
-    window.addEventListener('wheel', (e) => {
-      if (e.deltaY > 0) camDistance += 5; else camDistance = Math.max(2, camDistance - 5);
-    });
-
-    window.addEventListener('keydown', (e) => {
-      if (e.key.toLowerCase() === 'p') {
+      if (e.key.toLowerCase() === 'p' && currentEngineMode === 'sim') {
         isPaused = !isPaused;
         document.getElementById('pause-overlay').style.display = isPaused ? 'block' : 'none';
       }
     });
+    window.addEventListener('keyup', (e) => { activeKeys[e.key.toLowerCase()] = false; });
+
+    function toggleDropdown() { const display = document.getElementById('dropdown-content').style.display; document.getElementById('dropdown-content').style.display = (display === 'block') ? 'none' : 'block'; }
+    function toggleControlsPanel() { const panel = document.getElementById('controls-panel'); panel.style.display = (panel.style.display === 'block') ? 'none' : 'block'; document.getElementById('dropdown-content').style.display = 'none'; }
+    window.addEventListener('click', function(e) { if (!document.getElementById('brand-menu').contains(e.target) && !e.target.classList.contains('text-input-ui')) { document.getElementById('dropdown-content').style.display = 'none'; } });
+
+    let mouseX = 0, mouseY = 0;
+    window.addEventListener('mousemove', (e) => { if (isPaused || currentEngineMode !== 'sim') return; mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = 0 - ((e.clientY / window.innerHeight) * 2 - 1); });
+    window.addEventListener('wheel', (e) => { if (currentEngineMode === 'sim') { if (e.deltaY > 0) camDistance += 5; else camDistance = Math.max(2, camDistance - 5); } });
 
     viewer.clock.onTick.addEventListener(() => {
-      if (isPaused) {
-        const currentPos = positionProperty.getValue(viewer.clock.currentTime);
-        viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
+      const speed = 0.000025;
+      const currentPos = positionProperty.getValue(viewer.clock.currentTime);
+
+      if (currentEngineMode === 'editor') {
+        // Free Translate Camera Engine Loop Logic blocks
+        let translationStep = 0.8;
+        if (activeKeys['w']) editorCamOffset.y += translationStep;
+        if (activeKeys['s']) editorCamOffset.y -= translationStep;
+        if (activeKeys['a']) editorCamOffset.x -= translationStep;
+        if (activeKeys['d']) editorCamOffset.x += translationStep;
+
+        // Position camera inside cockpit orientation or relative matrix bounds
+        const transformMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(currentPos);
+        const localizedPosition = Cesium.Matrix4.multiplyByPoint(transformMatrix, editorCamOffset, new Cesium.Cartesian3());
+        viewer.camera.lookAt(currentPos, new Cesium.Cartesian3(editorCamOffset.x, editorCamOffset.y, editorCamOffset.z));
         return;
       }
 
-      targetPitch = (-mouseY * 45); 
-      targetRoll = (-mouseX * 45);  
-      
-      let interpolationWeight = 1.0 - smoothingFactor;
-      if (interpolationWeight < 0.01) interpolationWeight = 0.01;
+      if (currentEngineMode === 'sim') {
+        if (isPaused) {
+          viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
+          return;
+        }
 
-      pitch += (targetPitch - pitch) * interpolationWeight;
-      roll += (targetRoll - roll) * interpolationWeight;
-      heading -= (roll * 0.05);
-      
-      const pitchRad = Cesium.Math.toRadians(pitch);
-      const headingRad = Cesium.Math.toRadians(heading);
-      
-      lon += Math.sin(headingRad) * speed * Math.cos(pitchRad);
-      lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
-      alt += Math.sin(pitchRad) * (speed * 100000); 
+        targetPitch = (-mouseY * 45); targetRoll = (-mouseX * 45);  
+        let interpolationWeight = 1.0 - smoothingFactor;
+        if (interpolationWeight < 0.01) interpolationWeight = 0.01;
 
-      // Apply Local Matrix translation modifications safely without decoupling physics coordinates
-      if (airplane && airplane.model && airplane.model.nodeTransformations) {
-        propRotationAngle += 0.5;
-        if (propRotationAngle > Math.PI * 2) propRotationAngle -= Math.PI * 2;
-
-        // Build localized compound matrix mapping offsets directly onto the asset container node
-        const localTranslation = new Cesium.Cartesian3(modelOffsetX, modelOffsetY, modelOffsetZ);
-        const localHPR = new Cesium.HeadingPitchRoll(
-          Cesium.Math.toRadians(modelOffsetH),
-          Cesium.Math.toRadians(modelOffsetR),
-          Cesium.Math.toRadians(modelOffsetP)
-        );
+        pitch += (targetPitch - pitch) * interpolationWeight;
+        roll += (targetRoll - roll) * interpolationWeight;
+        heading -= (roll * 0.05);
         
-        // Target root inner node container reference safely
-        if (viewer.scene.primitives.get(0) && viewer.scene.primitives.get(0).getGlNode) {
-          // Fallback node update routine loops handled via standard pipeline declarations
+        const pitchRad = Cesium.Math.toRadians(pitch);
+        const headingRad = Cesium.Math.toRadians(heading);
+        lon += Math.sin(headingRad) * speed * Math.cos(pitchRad);
+        lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
+        alt += Math.sin(pitchRad) * (speed * 100000); 
+
+        // Live Subnode animation loop updates
+        if (airplane && airplane.model) {
+          propRotationAngle += 0.5; if (propRotationAngle > Math.PI * 2) propRotationAngle -= Math.PI * 2;
+          if (profileData.propNodeName !== "") {
+            viewer.scene.primitives.add(new Cesium.ModelNodeTransform({ nodeName: profileData.propNodeName, transformation: Cesium.Matrix4.fromRotationTranslation(Cesium.Matrix3.fromRotationY(propRotationAngle)) }));
+          }
+          if (profileData.flapNodeName !== "") {
+            viewer.scene.primitives.add(new Cesium.ModelNodeTransform({ nodeName: profileData.flapNodeName, transformation: Cesium.Matrix4.fromRotationTranslation(Cesium.Matrix3.fromRotationX(Cesium.Math.toRadians(pitch * 0.5))) }));
+          }
         }
 
-        if (propNodeName !== "") {
-          viewer.scene.primitives.add(new Cesium.ModelNodeTransform({
-            nodeName: propNodeName,
-            transformation: Cesium.Matrix4.fromRotationTranslation(Cesium.Matrix3.fromRotationY(propRotationAngle))
-          }));
-        }
-        if (flapNodeName !== "") {
-          viewer.scene.primitives.add(new Cesium.ModelNodeTransform({
-            nodeName: flapNodeName,
-            transformation: Cesium.Matrix4.fromRotationTranslation(Cesium.Matrix3.fromRotationX(Cesium.Math.toRadians(pitch * 0.5)))
-          }));
+        document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
+        document.getElementById('horizon-degrees').innerText = `${Math.round(pitch)}°`;
+        document.getElementById('alt-val').innerText = Math.round(alt);
+        document.getElementById('spd-val').innerText = Math.round(speed * 1200000); 
+
+        // Structural Camera Matrix Cycle Evaluator
+        if (currentViewIndex === -1) {
+          let camSpeedMultiplier = interpolationWeight * 2.5; if (camSpeedMultiplier > 1.0) camSpeedMultiplier = 1.0;
+          camHeading += (heading - camHeading) * camSpeedMultiplier;
+          viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
+        } else {
+          const matchedView = profileData.savedCameraViews[currentViewIndex];
+          viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(matchedView.heading + Cesium.Math.toRadians(heading), matchedView.pitch, matchedView.range));
         }
       }
-
-      document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
-      document.getElementById('horizon-degrees').innerText = `${Math.round(pitch)}°`;
-      document.getElementById('alt-val').innerText = Math.round(alt);
-      document.getElementById('spd-val').innerText = Math.round(speed * 1200000); 
-
-      let camSpeedMultiplier = interpolationWeight * 2.5; 
-      if (camSpeedMultiplier > 1.0) camSpeedMultiplier = 1.0;
-      camHeading += (heading - camHeading) * camSpeedMultiplier;
-
-      const currentPos = positionProperty.getValue(viewer.clock.currentTime);
-      viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
     });
   </script>
 </body>
