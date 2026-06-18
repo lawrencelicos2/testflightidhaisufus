@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>1glwfs</title>
+  <title>glwfs</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -100,9 +100,9 @@
 
       <div id="editor-instructions" style="display:none;">
         <h4>Camera Flight Keys</h4>
-        • <b>W / S</b>: Forward / Backward translation<br>
-        • <b>A / D</b>: Left / Right tracking step<br>
-        • <b>Mouse Drag</b>: Look around mesh space<br>
+        • <b>W / S</b>: Move Cam In / Out<br>
+        • <b>A / D</b>: Move Cam Left / Right<br>
+        • <b>Left Click + Drag</b>: Orbit / Aim Camera<br>
       </div>
       
       <div class="slider-container" id="smoothing-block" style="border-top: 1px solid #334155; padding-top: 8px;">
@@ -130,7 +130,6 @@
       <div id="editor-camera-block" style="display:none;">
         <h4>Camera View Mapping</h4>
         <button class="btn-action btn-save" onclick="captureCameraView()">Capture & Save Camera View</button>
-        <div style="color:#94a3b8; font-size:11px; margin-top:2px;">Saves current view offset coordinates into the engine cyclic loop.</div>
       </div>
 
       <h4>Visual Configuration Metrics</h4>
@@ -167,8 +166,8 @@
       <div class="slider-container">
         <label>Heading Alignment Offset</label>
         <div class="slider-row">
-          <input type="range" id="offsetHSlider" class="slider-ui" min="0" max="360" value="270" oninput="syncControl('offsetH', this.value)">
-          <input type="text" id="offsetHInput" class="input-ui" value="270" onchange="syncControl('offsetH', this.value)">
+          <input type="range" id="offsetHSlider" class="slider-ui" min="0" max="360" value="0" oninput="syncControl('offsetH', this.value)">
+          <input type="text" id="offsetHInput" class="input-ui" value="0" onchange="syncControl('offsetH', this.value)">
         </div>
       </div>
       <div class="slider-container">
@@ -200,7 +199,7 @@
   <script>
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXvyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Lyapi5jZXNpdW0uY29tIiwiYXVkIjoibGF3cmVuY2UyMTMxMl9kZWZhdWx0IiwiaWF0IjoxNzgxNzg0NDE5fQ.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
     
-    let currentEngineMode = 'menu'; // menu, sim, editor
+    let currentEngineMode = 'menu';
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, animation: false, timeline: false, geocoder: true,
       baseLayer: Cesium.ImageryLayer.fromProviderAsync(Cesium.ArcGisMapServerImageryProvider.fromUrl('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'))
@@ -209,29 +208,53 @@
     viewer.scene.globe.depthTestAgainstTerrain = true;
     Cesium.createOsmBuildingsAsync().then((tileset) => { viewer.scene.primitives.add(tileset); });
 
-    // Aircraft State Transform Metrics
     let lon = -74.0445, lat = 40.6892, alt = 200.0, heading = 0;
     let pitch = 0, roll = 0, targetPitch = 0, targetRoll = 0, smoothingFactor = 0.50;      
     
-    // Config profile object data blocks
+    // HEADING OFFSET DEFAULTS TO 0
     let profileData = {
-      modelOffsetH: 270, modelOffsetP: 0, modelOffsetR: 0,
+      modelOffsetH: 0, modelOffsetP: 0, modelOffsetR: 0,
       modelOffsetX: 0, modelOffsetY: 0, modelOffsetZ: 0,
       modelScale: 1.0, propNodeName: "", flapNodeName: "",
-      savedCameraViews: [] // Store array matrices for custom views
+      savedCameraViews: []
     };
 
     let propRotationAngle = 0;
     let activeCaptureMode = null;
-    let currentViewIndex = -1; // -1 represents structural dynamic default back tail camera tracking
+    let currentViewIndex = -1;
 
     let camHeading = 0, camDistance = 40, isPaused = false, loadedBlobURL = null;
-    let editorCamOffset = new Cesium.Cartesian3(0, -40, 10); // Standard layout view initialization vectors
+    
+    // Editor Camera Parameter States
+    let editorCamHeading = 0;
+    let editorCamPitch = -0.2;
+    let editorCamRange = 30;
 
     const positionProperty = new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false);
+    
+    // Fixed Compound Orientation matrix includes live positioning offset references natively
     const orientationProperty = new Cesium.CallbackProperty(() => {
       const center = positionProperty.getValue(viewer.clock.currentTime);
-      const hpr = new Cesium.HeadingPitchRoll(Cesium.Math.toRadians(heading), Cesium.Math.toRadians(roll), Cesium.Math.toRadians(pitch));
+      
+      let finalH = heading;
+      let finalP = pitch;
+      let finalR = roll;
+
+      if (currentEngineMode === 'sim') {
+        finalH += profileData.modelOffsetH;
+        finalP += profileData.modelOffsetP;
+        finalR += profileData.modelOffsetR;
+      } else {
+        finalH += profileData.modelOffsetH;
+        finalP += profileData.modelOffsetP;
+        finalR += profileData.modelOffsetR;
+      }
+
+      const hpr = new Cesium.HeadingPitchRoll(
+        Cesium.Math.toRadians(finalH), 
+        Cesium.Math.toRadians(finalR), 
+        Cesium.Math.toRadians(finalP)
+      );
       return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
     }, false);
 
@@ -240,7 +263,6 @@
       box: { dimensions: new Cesium.Cartesian3(1.5, 8.0, 1.5), material: Cesium.Color.RED }
     });
 
-    // Boot Routine Initializer
     function bootProgram(mode) {
       currentEngineMode = mode;
       document.getElementById('home-screen').style.display = 'none';
@@ -248,6 +270,7 @@
       document.getElementById('brand-menu').style.display = 'block';
       
       if(mode === 'sim') {
+        viewer.scene.screenSpaceCameraController.enableInputs = false; // Capture inputs for simulation flight physics
         document.getElementById('crosshair').style.display = 'block';
         document.getElementById('horizon-indicator').style.display = 'block';
         document.getElementById('alt-indicator').style.display = 'block';
@@ -258,8 +281,8 @@
         document.getElementById('editor-camera-block').style.display = 'none';
         document.getElementById('editor-indicator').style.display = 'none';
         document.getElementById('menu-toggle-text').innerText = "Flight Controls & Mesh";
-        viewer.useDefaultRenderLoop = true;
       } else if (mode === 'editor') {
+        viewer.scene.screenSpaceCameraController.enableInputs = true; // Let camera interact with viewer controls natively
         document.getElementById('crosshair').style.display = 'none';
         document.getElementById('horizon-indicator').style.display = 'none';
         document.getElementById('alt-indicator').style.display = 'none';
@@ -271,14 +294,17 @@
         document.getElementById('editor-indicator').style.display = 'block';
         document.getElementById('menu-toggle-text').innerText = "Asset Rigging Workbench";
         
-        // Reset local editor space calibration position matrix
-        editorCamOffset = new Cesium.Cartesian3(0, -40, 5);
+        editorCamHeading = 0;
+        editorCamPitch = -0.2;
+        editorCamRange = 30;
         currentViewIndex = -1;
       }
+      rebuildAircraftEntity();
     }
 
     function exitToHome() {
       currentEngineMode = 'menu';
+      viewer.scene.screenSpaceCameraController.enableInputs = true;
       document.getElementById('home-screen').style.display = 'flex';
       document.getElementById('cesiumContainer').style.display = 'none';
       document.getElementById('brand-menu').style.display = 'none';
@@ -301,37 +327,61 @@
     }
 
     function rebuildAircraftEntity() {
-      if (!loadedBlobURL) return;
       viewer.entities.remove(airplane);
+      
+      let modelConfig = {
+        scale: new Cesium.CallbackProperty(() => profileData.modelScale, false),
+        runAnimations: false
+      };
+
+      if (loadedBlobURL) {
+        modelConfig.uri = loadedBlobURL;
+        modelConfig.minimumPixelSize = 64;
+      }
+
+      // Build out direct internal node offsets so the model translations calculate relative to the asset container
+      let nodeTransforms = {};
+      
+      const positionTranslationProperty = new Cesium.CallbackProperty(() => {
+        return new Cesium.TranslationRotationScale(
+          new Cesium.Cartesian3(profileData.modelOffsetX, profileData.modelOffsetY, profileData.modelOffsetZ),
+          Cesium.Quaternion.IDENTITY,
+          new Cesium.Cartesian3(1, 1, 1)
+        );
+      }, false);
+
       airplane = viewer.entities.add({
-        position: positionProperty, orientation: orientationProperty,
-        model: { uri: loadedBlobURL, minimumPixelSize: 64, scale: new Cesium.CallbackProperty(() => profileData.modelScale, false), runAnimations: false }
+        position: positionProperty,
+        orientation: orientationProperty,
+        ...(loadedBlobURL ? { model: modelConfig } : { box: { dimensions: new Cesium.Cartesian3(2, 8, 2), material: Cesium.Color.RED } })
       });
+      
+      // Inject standard translation modifications inside model property components
+      if(loadedBlobURL) {
+        airplane.model.nodeTransformations = new Cesium.PropertyBag({
+          // Target root translation indices safely
+          "RootNode": positionTranslationProperty,
+          "root": positionTranslationProperty
+        });
+      }
     }
 
-    // Camera Custom Profile Frame Capture Logic
     function captureCameraView() {
-      // Calculate current transform range parameters relative to the core target geometry root matrix
-      const center = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
-      const viewMatrix = viewer.camera.viewMatrix;
-      
-      // Save current localized offset position coordinates directly
       const savedView = {
-        heading: viewer.camera.heading,
+        heading: viewer.camera.heading - Cesium.Math.toRadians(heading),
         pitch: viewer.camera.pitch,
-        range: Cesium.Cartesian3.distance(viewer.camera.position, center)
+        range: Cesium.Cartesian3.distance(viewer.camera.position, positionProperty.getValue(viewer.clock.currentTime))
       };
       
       profileData.savedCameraViews.push(savedView);
       document.getElementById('view-count-lbl').innerText = profileData.savedCameraViews.length;
       
       const alertBox = document.getElementById('view-alert');
-      alertBox.innerText = `View #${profileData.savedCameraViews.length} Captured!`;
+      alertBox.innerText = `View #${profileData.savedCameraViews.length} Saved!`;
       alertBox.style.display = 'block';
       setTimeout(() => { alertBox.style.display = 'none'; }, 2000);
     }
 
-    // Export System Config Routine
     function exportConfigProfile() {
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(profileData, null, 2));
       const downloadAnchor = document.createElement('a');
@@ -342,7 +392,6 @@
       downloadAnchor.remove();
     }
 
-    // Configuration Uploader & Loader Parser Interface
     function loadConfigProfile(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -352,7 +401,6 @@
           const parsed = JSON.parse(e.target.result);
           profileData = { ...profileData, ...parsed };
           
-          // Re-sync all internal control configurations inside layout pipeline frame targets
           document.getElementById('propNodeInput').value = profileData.propNodeName;
           document.getElementById('flapNodeInput').value = profileData.flapNodeName;
           document.getElementById('view-count-lbl').innerText = profileData.savedCameraViews.length;
@@ -365,9 +413,10 @@
           syncControl('offsetP', profileData.modelOffsetP);
           syncControl('offsetR', profileData.modelOffsetR);
           
-          alert("Profile configurations loaded successfully!");
+          rebuildAircraftEntity();
+          alert("Profile loaded!");
         } catch(err) {
-          alert("Error parsing profile layout configuration JSON.");
+          alert("Error loading config profile.");
         }
       };
       reader.readAsText(file);
@@ -376,10 +425,38 @@
     function setActiveCapture(mode) {
       activeCaptureMode = mode;
       const targetInput = mode === 'prop' ? 'propNodeInput' : 'flapNodeInput';
-      document.getElementById(targetInput).value = "CLICK ON PLANE GRAPHIC PART...";
+      document.getElementById(targetInput).value = "CLICK MESH PART IN SKY...";
     }
 
+    let isLeftMouseDown = false;
+    let lastMousePos = { x: 0, y: 0 };
+
     const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+    
+    handler.setInputAction(function (movement) {
+      if (currentEngineMode !== 'editor') return;
+      isLeftMouseDown = true;
+      lastMousePos.x = movement.position.x;
+      lastMousePos.y = movement.position.y;
+    }, Cesium.ScreenSpaceEventType.LEFT_DOWN);
+
+    handler.setInputAction(function (movement) {
+      if (currentEngineMode !== 'editor' || !isLeftMouseDown) return;
+      
+      const deltaX = movement.endPosition.x - lastMousePos.x;
+      const deltaY = movement.endPosition.y - lastMousePos.y;
+      
+      editorCamHeading -= deltaX * 0.005;
+      editorCamPitch = Math.max(-1.4, Math.min(1.4, editorCamPitch + deltaY * 0.005));
+      
+      lastMousePos.x = movement.endPosition.x;
+      lastMousePos.y = movement.endPosition.y;
+    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+    handler.setInputAction(function () {
+      isLeftMouseDown = false;
+    }, Cesium.ScreenSpaceEventType.LEFT_UP);
+
     handler.setInputAction(function (click) {
       if (!activeCaptureMode) return;
       const pickedObject = viewer.scene.pick(click.position);
@@ -398,7 +475,7 @@
       const numVal = parseFloat(val); if (isNaN(numVal)) return;
       const types = {
         smooth: () => { smoothingFactor = Math.max(0.5, Math.min(1.0, numVal)); document.getElementById('smoothSlider').value = smoothingFactor; document.getElementById('smoothInput').value = smoothingFactor.toFixed(2); },
-        scale: () => { profileData.modelScale = Math.max(1, numVal); document.getElementById('scaleSlider').value = numVal; document.getElementById('scaleInput').value = numVal; },
+        scale: () => { profileData.modelScale = numVal; document.getElementById('scaleSlider').value = numVal; document.getElementById('scaleInput').value = numVal; },
         offsetX: () => { profileData.modelOffsetX = numVal; document.getElementById('offsetXSlider').value = numVal; document.getElementById('offsetXInput').value = numVal; },
         offsetY: () => { profileData.modelOffsetY = numVal; document.getElementById('offsetYSlider').value = numVal; document.getElementById('offsetYInput').value = numVal; },
         offsetZ: () => { profileData.modelOffsetZ = numVal; document.getElementById('offsetZSlider').value = numVal; document.getElementById('offsetZInput').value = numVal; },
@@ -409,17 +486,14 @@
       if(types[type]) types[type]();
     }
 
-    // Real-time Editor Keyboard Handling Logic Matrices
     const activeKeys = {};
     window.addEventListener('keydown', (e) => { 
       activeKeys[e.key.toLowerCase()] = true; 
-      
-      // Cycle Camera Profile Matrix Routine
       if (e.key.toLowerCase() === 'c' && currentEngineMode === 'sim') {
         if (profileData.savedCameraViews.length > 0) {
           currentViewIndex = (currentViewIndex + 1) >= profileData.savedCameraViews.length ? -1 : currentViewIndex + 1;
           const alertBox = document.getElementById('view-alert');
-          alertBox.innerText = currentViewIndex === -1 ? "View: Standard Tail Follow" : `View: Custom Position Cam #${currentViewIndex + 1}`;
+          alertBox.innerText = currentViewIndex === -1 ? "View: Standard Follow" : `View: Custom Saved View #${currentViewIndex + 1}`;
           alertBox.style.display = 'block';
           setTimeout(() => { alertBox.style.display = 'none'; }, 1500);
         }
@@ -437,24 +511,24 @@
 
     let mouseX = 0, mouseY = 0;
     window.addEventListener('mousemove', (e) => { if (isPaused || currentEngineMode !== 'sim') return; mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = 0 - ((e.clientY / window.innerHeight) * 2 - 1); });
-    window.addEventListener('wheel', (e) => { if (currentEngineMode === 'sim') { if (e.deltaY > 0) camDistance += 5; else camDistance = Math.max(2, camDistance - 5); } });
+    window.addEventListener('wheel', (e) => { 
+      if (currentEngineMode === 'sim') { if (e.deltaY > 0) camDistance += 5; else camDistance = Math.max(2, camDistance - 5); }
+      if (currentEngineMode === 'editor') { if (e.deltaY > 0) editorCamRange += 2; else editorCamRange = Math.max(2, editorCamRange - 2); }
+    });
 
     viewer.clock.onTick.addEventListener(() => {
       const speed = 0.000025;
       const currentPos = positionProperty.getValue(viewer.clock.currentTime);
 
       if (currentEngineMode === 'editor') {
-        // Free Translate Camera Engine Loop Logic blocks
-        let translationStep = 0.8;
-        if (activeKeys['w']) editorCamOffset.y += translationStep;
-        if (activeKeys['s']) editorCamOffset.y -= translationStep;
-        if (activeKeys['a']) editorCamOffset.x -= translationStep;
-        if (activeKeys['d']) editorCamOffset.x += translationStep;
+        let translationStep = 0.5;
+        if (activeKeys['w']) editorCamRange = Math.max(2, editorCamRange - translationStep);
+        if (activeKeys['s']) editorCamRange += translationStep;
+        if (activeKeys['a']) editorCamHeading -= 0.03;
+        if (activeKeys['d']) editorCamHeading += 0.03;
 
-        // Position camera inside cockpit orientation or relative matrix bounds
-        const transformMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(currentPos);
-        const localizedPosition = Cesium.Matrix4.multiplyByPoint(transformMatrix, editorCamOffset, new Cesium.Cartesian3());
-        viewer.camera.lookAt(currentPos, new Cesium.Cartesian3(editorCamOffset.x, editorCamOffset.y, editorCamOffset.z));
+        // Apply interactive orbit look vectors inside editor pipeline bounding boxes
+        viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(editorCamHeading, editorCamPitch, editorCamRange));
         return;
       }
 
@@ -478,9 +552,10 @@
         lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
         alt += Math.sin(pitchRad) * (speed * 100000); 
 
-        // Live Subnode animation loop updates
-        if (airplane && airplane.model) {
+        // Update custom propeller subnode properties via continuous ticking animations
+        if (airplane && airplane.model && loadedBlobURL) {
           propRotationAngle += 0.5; if (propRotationAngle > Math.PI * 2) propRotationAngle -= Math.PI * 2;
+          
           if (profileData.propNodeName !== "") {
             viewer.scene.primitives.add(new Cesium.ModelNodeTransform({ nodeName: profileData.propNodeName, transformation: Cesium.Matrix4.fromRotationTranslation(Cesium.Matrix3.fromRotationY(propRotationAngle)) }));
           }
@@ -494,7 +569,6 @@
         document.getElementById('alt-val').innerText = Math.round(alt);
         document.getElementById('spd-val').innerText = Math.round(speed * 1200000); 
 
-        // Structural Camera Matrix Cycle Evaluator
         if (currentViewIndex === -1) {
           let camSpeedMultiplier = interpolationWeight * 2.5; if (camSpeedMultiplier > 1.0) camSpeedMultiplier = 1.0;
           camHeading += (heading - camHeading) * camSpeedMultiplier;
