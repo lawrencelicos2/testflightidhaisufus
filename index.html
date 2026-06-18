@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs1</title>
+  <title>glwfs</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -11,7 +11,7 @@
     #brand-logo { position: absolute; top: 20px; left: 20px; color: #fff; background: rgba(0,0,0,0.6); padding: 10px 20px; font-family: sans-serif; font-weight: bold; z-index: 1000; border-radius: 4px; }
     #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; z-index: 1000; }
     
-    /* Control Panel UI */
+    /* Control Panel UI - Restored */
     #upload-container { position: absolute; top: 20px; right: 20px; z-index: 1000; display: flex; gap: 8px; }
     .btn-upload { background: #3182ce; color: #fff; border: none; padding: 10px 15px; font-family: sans-serif; font-weight: bold; font-size: 13px; border-radius: 4px; cursor: pointer; transition: background 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
     .btn-upload:hover { background: #2b6cb0; }
@@ -56,28 +56,22 @@
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, 
       animation: false, 
-      timeline: false
+      timeline: false,
+      geocoder: true
     });
     
     viewer.scene.globe.depthTestAgainstTerrain = true;
 
-    // Upgraded from generic OSM structural assets to textured Photorealistic global 3D tilesets
-    Cesium.Cesium3DTileset.fromIonAssetId(2275207).then((tileset) => {
-      viewer.scene.primitives.add(tileset);
-    }).catch((error) => {
-      // Fallback seamlessly to standard OSM structures if token access limitations occur
-      Cesium.createOsmBuildingsAsync().then((tileset) => { 
-        viewer.scene.primitives.add(tileset); 
-      });
+    // Fast rendering structural gray/brown fallback geometry restored
+    Cesium.createOsmBuildingsAsync().then((tileset) => { 
+      viewer.scene.primitives.add(tileset); 
     });
 
     let lon = -74.0120, lat = 40.7050, alt = 600.0, heading = 0, pitch = 0, roll = 0;
-    
     const speed = 0.000025; 
     let camDistance = 40; 
     let isPaused = false;
 
-    // Red core layout variables
     const entityConfig = {
       position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
       orientation: new Cesium.CallbackProperty(() => {
@@ -93,17 +87,16 @@
 
     let airplane;
 
-    // Function to re-render aircraft configuration
     function resetToDefaultCube() {
       if (airplane) viewer.entities.remove(airplane);
+      // Reshaped long and slim like a pencil
       airplane = viewer.entities.add({
         position: entityConfig.position,
         orientation: entityConfig.orientation,
-        box: { dimensions: new Cesium.Cartesian3(8.0, 8.0, 4.0), material: Cesium.Color.RED }
+        box: { dimensions: new Cesium.Cartesian3(1.5, 8.0, 1.5), material: Cesium.Color.RED }
       });
     }
 
-    // Call it explicitly to load the red block right on start
     resetToDefaultCube();
 
     function updateAircraftModel(url) {
@@ -118,6 +111,18 @@
         }
       });
     }
+
+    // Geocoder Search Teleportation Engine Fixed
+    viewer.geocoder.viewModel.complete.addEventListener(() => {
+      const camCartographic = viewer.scene.camera.positionCartographic;
+      lon = Cesium.Math.toDegrees(camCartographic.longitude);
+      lat = Cesium.Math.toDegrees(camCartographic.latitude);
+      
+      alt = 200.0; // Spawns precisely 200m above ground vector
+      heading = 0; // Total angular parameter reset
+      pitch = 0;
+      roll = 0;
+    });
 
     document.getElementById('file-input').addEventListener('change', function(e) {
       const file = e.target.files[0];
