@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs</title>
+  <title>glwfs1</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -18,12 +18,15 @@
     
     #alt-indicator { position: absolute; bottom: 30px; left: calc(50% - 160px); width: 80px; height: 40px; background: rgba(0,0,0,0.7); border: 2px solid #718096; color: #0f0; font-family: monospace; text-align: center; font-size: 12px; border-radius: 4px; z-index: 1002; padding-top: 5px; }
     #spd-indicator { position: absolute; bottom: 30px; left: calc(50% + 90px); width: 80px; height: 40px; background: rgba(0,0,0,0.7); border: 2px solid #718096; color: #0f0; font-family: monospace; text-align: center; font-size: 12px; border-radius: 4px; z-index: 1002; padding-top: 5px; }
+    
+    #pause-overlay { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ff0000; font-family: sans-serif; font-size: 32px; font-weight: bold; background: rgba(0,0,0,0.8); padding: 10px 30px; border-radius: 8px; border: 2px solid #ff0000; z-index: 2000; pointer-events: none; }
   </style>
 </head>
 <body>
   <div id="cesiumContainer"></div>
   <div id="brand-logo">GLWFS</div>
   <div id="crosshair"></div>
+  <div id="pause-overlay">PAUSED</div>
   
   <div id="horizon-indicator">
     <div id="horizon-disc">
@@ -35,17 +38,27 @@
 
   <script>
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1YWMyNTk2MC0yNDhhLTQyMTQtYmM3My1jYzBlMDJlN2FjN2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTc3NjEyNH0.-Xv456V3XvbRuZNtd-5-LdWzeTZctKKFcsE6v_b6TXg';
-    const viewer = new Cesium.Viewer('cesiumContainer', { baseLayerPicker: false, animation: false, timeline: false });
     
+    const viewer = new Cesium.Viewer('cesiumContainer', { 
+      baseLayerPicker: false, 
+      animation: false, 
+      timeline: false
+    });
+    
+    // Stabilize spatial parallax alignments against dizzying distortions
+    viewer.scene.globe.depthTestAgainstTerrain = true;
+
     Cesium.createOsmBuildingsAsync().then((tileset) => { 
       tileset.maximumScreenSpaceError = 32; 
       viewer.scene.primitives.add(tileset); 
     });
 
-    // Altitude raised to 600m to separate the camera from the ground plane distortion
     let lon = -74.0120, lat = 40.7050, alt = 600.0, heading = 0, pitch = 0, roll = 0;
-    const speed = 0.00015; 
+    
+    // Speed cut down to exactly 1/3 of the previous speed value
+    const speed = 0.00005; 
     let camDistance = 150; 
+    let isPaused = false;
 
     const airplane = viewer.entities.add({
       position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
@@ -63,6 +76,7 @@
 
     let mouseX = 0, mouseY = 0;
     window.addEventListener('mousemove', (e) => {
+      if (isPaused) return;
       mouseX = (e.clientX / window.innerWidth) * 2 - 1;
       mouseY = 0 - ((e.clientY / window.innerHeight) * 2 - 1);
     });
@@ -75,7 +89,23 @@
       }
     });
 
+    // P key toggle listener for game pause tracking execution
+    window.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 'p') {
+        isPaused = !isPaused;
+        document.getElementById('pause-overlay').style.display = isPaused ? 'block' : 'none';
+      }
+    });
+
     viewer.clock.onTick.addEventListener(() => {
+      if (isPaused) {
+        // Keep camera locked in space smoothly even when tracking loop updates are paused
+        const currentPos = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+        const headingRad = Cesium.Math.toRadians(heading);
+        viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(headingRad, Cesium.Math.toRadians(-15), camDistance));
+        return;
+      }
+
       pitch = (-mouseY * 45); 
       roll = (-mouseX * 45);  
       heading += (mouseX * 2.0);
