@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>1glwfs</title>
+  <title>glwfs</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -53,7 +53,8 @@
     </div>
     <div id="controls-panel">
       <h4>Navigation & Control</h4>
-      • <b>Mouse</b>: Roll & Pitch control parameters<br>
+      • <b>Mouse Left/Right</b>: Continuous Roll Speed<br>
+      • <b>Mouse Up/Down</b>: Pitch Rate Target<br>
       • <b>Scroll Wheel</b>: Camera zoom distance<br>
       • <b>P Key</b>: Pause simulator physics<br>
       
@@ -73,7 +74,6 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">0</span>kn</div>
 
   <script>
-    // FIXED: Exact, pristine original security token verified
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTc4NDQxOX0.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
     
     const viewer = new Cesium.Viewer('cesiumContainer', { 
@@ -95,11 +95,12 @@
     let heading = 0;
     
     let pitch = 0, roll = 0;         
-    let targetPitch = 0, targetRoll = 0; 
+    let targetPitch = 0; 
     let smoothingFactor = 0.50;      
     
     let camHeading = 0;
     
+    // Using coordinate speeds scaled directly to the terrain environment grid
     const speed = 0.000025; 
     let camDistance = 40; 
     let isPaused = false;
@@ -108,7 +109,6 @@
       position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
       orientation: new Cesium.CallbackProperty(() => {
         const center = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
-        // RESTORED: Standard working axis configuration array sequence
         const hpr = new Cesium.HeadingPitchRoll(
           Cesium.Math.toRadians(heading), 
           Cesium.Math.toRadians(roll), 
@@ -157,7 +157,6 @@
       pitch = 0;
       targetPitch = 0;
       roll = 0;
-      targetRoll = 0;
     });
 
     let mouseX = 0, mouseY = 0;
@@ -189,24 +188,31 @@
         return;
       }
 
-      // Normal configuration constraints returned
+      // Pitch targets remain bound directly to the vertical mouse axis
       targetPitch = (-mouseY * 45); 
-      targetRoll = (-mouseX * 45); 
       
       let interpolationWeight = 1.0 - smoothingFactor;
       if (interpolationWeight < 0.01) interpolationWeight = 0.01;
 
       pitch += (targetPitch - pitch) * interpolationWeight;
-      roll += (targetRoll - roll) * interpolationWeight;
       
-      // Auto-turning loops are entirely removed; vehicle heading vector remains untouched here
-      
+      // UNCAPPED ROLL: Mouse X acts as a roll speed factor. It continually accumulates.
+      if (Math.abs(mouseX) > 0.05) {
+        roll += (mouseX * 4.0); // Adjust this value to make continuous rolling faster/slower
+        // Keep roll bound inside standard 0-360 boundaries loops gracefully
+        if (roll > 180) roll -= 360;
+        if (roll < -180) roll += 360;
+      }
+
       let pitchRad = Cesium.Math.toRadians(pitch);
       let headingRad = Cesium.Math.toRadians(heading);
       
+      // Moving directly forward along the nose vector direction
       lon += Math.sin(headingRad) * speed * Math.cos(pitchRad);
       lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
-      alt += Math.sin(pitchRad) * (speed * 100000); 
+      
+      // Moving up/down directly modifies absolute altitude based purely on pitch metrics
+      alt += Math.sin(pitchRad) * (speed * 111320); // Multiplier converts degrees safely to meters
 
       document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
       document.getElementById('horizon-degrees').innerText = `${Math.round(pitch)}°`;
