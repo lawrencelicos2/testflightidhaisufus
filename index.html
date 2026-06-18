@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>GLWFS</title>
+  <title>glwfs1</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -31,11 +31,6 @@
 
     let position = Cesium.Cartesian3.fromDegrees(-74.0120, 40.7050, 300.0);
     let heading = 0, pitch = 0, roll = 0;
-    
-    // Target rates for handling flight weight inertia
-    let pitchRate = 0, rollRate = 0, headingRate = 0;
-    const weightFactor = 0.05; // Lower values make the plane feel heavier and less twitchy
-
     const speed = 10.0; 
 
     const airplane = viewer.entities.add({
@@ -58,20 +53,10 @@
     });
 
     viewer.clock.onTick.addEventListener(() => {
-      // Calculate target rotational velocities based on mouse input
-      const targetPitchRate = mouseY * 1.5;
-      const targetRollRate = mouseX * 2.0;
-      const targetHeadingRate = mouseX * 1.0;
-
-      // Apply mass/weight inertia to smooth out rotations
-      pitchRate += (targetPitchRate - pitchRate) * weightFactor;
-      rollRate += (targetRollRate - rollRate) * weightFactor;
-      headingRate += (targetHeadingRate - headingRate) * weightFactor;
-
-      // Accumulate the weighted rates into flight positions
-      pitch += pitchRate; 
-      roll += rollRate;  
-      heading += headingRate;
+      // Raw uncapped accumulation restored
+      pitch += (mouseY * 1.5); 
+      roll += (mouseX * 2.0);  
+      heading += (mouseX * 1.0);
 
       pitch = Cesium.Math.negativePiToPi(Cesium.Math.toRadians(pitch));
       roll = Cesium.Math.negativePiToPi(Cesium.Math.toRadians(roll));
@@ -91,8 +76,8 @@
       const rollDeg = Cesium.Math.toDegrees(roll);
       document.getElementById('horizon-disc').style.transform = `rotate(${rollDeg}deg) translateY(${pitchDeg * 1.5}px)`;
       
-      // Camera view range restored to 500
-      viewer.camera.lookAt(position, new Cesium.HeadingPitchRange(heading, Cesium.Math.toRadians(-15), 500));
+      // Lock camera to plane's transform matrix so the view rolls relative to the aircraft body
+      viewer.camera.lookAtTransform(orientationMatrix, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(0), Cesium.Math.toRadians(-15), 500));
     });
   </script>
 </body>
