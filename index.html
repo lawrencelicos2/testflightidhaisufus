@@ -32,8 +32,18 @@
     let lon = -74.0120, lat = 40.7050, alt = 300.0, heading = 0, pitch = 0, roll = 0;
     const speed = 0.0002;
 
+    // Added orientation property here so the box can rotate in 3D space
     const airplane = viewer.entities.add({
       position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
+      orientation: new Cesium.CallbackProperty(() => {
+        const center = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+        const hpr = new Cesium.HeadingPitchRoll(
+          Cesium.Math.toRadians(heading), 
+          Cesium.Math.toRadians(pitch), 
+          Cesium.Math.toRadians(roll)
+        );
+        return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
+      }, false),
       box: { dimensions: new Cesium.Cartesian3(10, 10, 10), material: Cesium.Color.RED }
     });
 
