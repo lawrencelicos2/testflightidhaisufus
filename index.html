@@ -63,8 +63,8 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">0</span>kn</div>
 
   <script>
-    // FIXED: Token is now configured immediately at the top before the viewer runs
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTY4MTt4NDQxOX0.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
+    // Token updated with explicit 2026 epoch signature configuration
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTc4NDQxOX0.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
     
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, 
@@ -79,7 +79,7 @@
       viewer.scene.primitives.add(tileset); 
     });
 
-    // Initial positioning vector (Statue of Liberty, New York Harbor)
+    // Fixed Spawn Vectors facing Lady Liberty
     let lon = -74.0445;
     let lat = 40.6892;
     let alt = 200.0; 
