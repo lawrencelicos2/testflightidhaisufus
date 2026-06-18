@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs</title>
+  <title>glwfs1</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -88,7 +88,6 @@
 
     let airplane = viewer.entities.add(entityConfig);
 
-    // Shared function to update model source
     function updateAircraftModel(url) {
       viewer.entities.remove(airplane);
       airplane = viewer.entities.add({
@@ -102,7 +101,6 @@
       });
     }
 
-    // Local File Handler
     document.getElementById('file-input').addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -117,7 +115,6 @@
       reader.readAsArrayBuffer(file);
     });
 
-    // Remote URL Input Handler
     document.getElementById('btn-url').addEventListener('click', function() {
       const url = document.getElementById('url-input').value.trim();
       if (url) {
