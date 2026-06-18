@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs</title>
+  <title>glwfs 1</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -73,7 +73,7 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">0</span>kn</div>
 
   <script>
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTc4NDQxOX0.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTtcNzg0NDE5fQ.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
     
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, 
@@ -93,10 +93,9 @@
     let alt = 200.0; 
     let heading = 0;
     
-    // Split target inputs away from current structural values to process lerp pipeline
-    let pitch = 0, roll = 0;         // Current rendered orientation values
-    let targetPitch = 0, targetRoll = 0; // Target values dictated by mouse positions
-    let smoothingFactor = 0.50;      // 0.0 means instant response, 1.0 means no movement
+    let pitch = 0, roll = 0;         
+    let targetPitch = 0, targetRoll = 0; 
+    let smoothingFactor = 0.50;      
     
     const speed = 0.000025; 
     let camDistance = 40; 
@@ -186,21 +185,17 @@
         return;
       }
 
-      // Calculate absolute target objectives based on raw input parameters
       targetPitch = (-mouseY * 45); 
       targetRoll = (-mouseX * 45);  
       
-      // Calculate interpolation step speed based on the inverted slider metrics
-      // High value on slider (0.95) = very low lerp interpolation step weight (0.05) = high inertia
       let interpolationWeight = 1.0 - smoothingFactor;
-      if (interpolationWeight < 0.01) interpolationWeight = 0.01; // Avoid mathematical convergence locks
+      if (interpolationWeight < 0.01) interpolationWeight = 0.01;
 
-      // Apply linear interpolation matrices to shift values smoothly frame-over-frame
       pitch += (targetPitch - pitch) * interpolationWeight;
       roll += (targetRoll - roll) * interpolationWeight;
       
-      // Heading turn rates track roll angle momentum smoothly
-      heading += (roll * 0.05);
+      // FIXED: Inverted roll interaction multiplier to fix turn dynamics direction
+      heading -= (roll * 0.05);
       
       const pitchRad = Cesium.Math.toRadians(pitch);
       const headingRad = Cesium.Math.toRadians(heading);
