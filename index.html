@@ -8,15 +8,21 @@
   <style>
     body { margin: 0; padding: 0; overflow: hidden; background: #000; }
     #cesiumContainer { width: 100%; height: 100%; }
-    #brand-logo { position: absolute; top: 20px; left: 20px; color: #fff; background: rgba(0,0,0,0.6); padding: 10px 20px; font-family: sans-serif; font-weight: bold; z-index: 1000; border-radius: 4px; }
-    #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; z-index: 1000; }
     
-    /* Control Panel UI */
-    #upload-container { position: absolute; top: 20px; right: 20px; z-index: 1000; display: flex; gap: 8px; }
-    .btn-upload { background: #3182ce; color: #fff; border: none; padding: 10px 15px; font-family: sans-serif; font-weight: bold; font-size: 13px; border-radius: 4px; cursor: pointer; transition: background 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-    .btn-upload:hover { background: #2b6cb0; }
-    #url-input { background: rgba(0, 0, 0, 0.8); color: #fff; border: 2px solid #3182ce; padding: 8px; border-radius: 4px; font-family: sans-serif; width: 200px; }
-    #file-input { display: none; }
+    /* Top Left Unified Menu Header */
+    #brand-menu { position: absolute; top: 20px; left: 20px; z-index: 1000; font-family: sans-serif; }
+    #brand-logo { color: #fff; background: rgba(0,0,0,0.8); padding: 10px 20px; font-weight: bold; border-radius: 4px; border: 1px solid #3182ce; cursor: pointer; user-select: none; }
+    
+    /* Dropdown UI Configuration */
+    #dropdown-content { display: none; position: absolute; top: 100%; left: 0; background: rgba(0,0,0,0.9); margin-top: 5px; border-radius: 4px; border: 1px solid #4a5568; width: 220px; overflow: hidden; }
+    .dropdown-item { color: #fff; padding: 12px 15px; font-size: 14px; text-decoration: none; display: block; cursor: pointer; transition: background 0.2s; }
+    .dropdown-item:hover { background: #3182ce; }
+    
+    /* Integrated Flight Control Panel Layout */
+    #controls-panel { display: none; color: #fff; background: rgba(0, 0, 0, 0.85); padding: 15px; border-radius: 4px; border: 1px solid #718096; margin-top: 5px; width: 200px; font-size: 13px; line-height: 1.5; }
+    #controls-panel h4 { margin: 0 0 8px 0; color: #3182ce; font-size: 14px; }
+    
+    #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; z-index: 1000; }
 
     /* Instrument HUD Layout */
     #horizon-indicator { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 120px; height: 120px; background: #1a202c; border: 3px solid #718096; border-radius: 50%; overflow: hidden; z-index: 1002; }
@@ -31,15 +37,21 @@
 </head>
 <body>
   <div id="cesiumContainer"></div>
-  <div id="brand-logo">GLWFS</div>
   <div id="crosshair"></div>
   <div id="pause-overlay">PAUSED</div>
   
-  <div id="upload-container">
-    <input type="text" id="url-input" placeholder="Paste .glb URL here...">
-    <button class="btn-upload" id="btn-url">Load URL</button>
-    <button class="btn-upload" onclick="document.getElementById('file-input').click()">Or Choose File</button>
-    <input type="file" id="file-input" accept=".glb,.gltf">
+  <div id="brand-menu">
+    <div id="brand-logo" onclick="toggleDropdown()">GLWFS ▾</div>
+    <div id="dropdown-content">
+      <div class="dropdown-item" onclick="toggleControlsPanel()">Flight Controls</div>
+    </div>
+    <div id="controls-panel">
+      <h4>Navigation & Control</h4>
+      • <b>Mouse</b>: Pitch & Roll dynamics<br>
+      • <b>Scroll Wheel</b>: Camera zoom distance<br>
+      • <b>P Key</b>: Pause simulator physics<br>
+      • <b>Search Bar</b>: Enter city or airfield to teleport 200m over location.
+    </div>
   </div>
   
   <div id="horizon-indicator">
@@ -51,7 +63,7 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">0</span>kn</div>
 
   <script>
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1YWMyNTk2MC0yNDhhLTQyMTQtYmM3My1jYzBlMDJlN2FjN2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTc3NjEyNH0.-Xv456V3XvbRuZNtd-5-LdWzeTZctKKFcsE6v_b6TXg';
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1YWMyNTk2MC0yNDhhLTQyMTQtYmM3My1jYzBlMDJlN2FjN2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTtext6YwM3My1jYzBlMDJlN2FjN2Ei.-Xv456V3XvbRuZNtd-5-LdWzeTZctKKFcsE6v_b6TXg';
     
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, 
@@ -84,47 +96,33 @@
       }, false)
     };
 
-    let airplane;
+    // Constant pencil geometric rendering template 
+    let airplane = viewer.entities.add({
+      position: entityConfig.position,
+      orientation: entityConfig.orientation,
+      box: { dimensions: new Cesium.Cartesian3(1.5, 8.0, 1.5), material: Cesium.Color.RED }
+    });
 
-    function resetToDefaultCube() {
-      if (airplane) viewer.entities.remove(airplane);
-      airplane = viewer.entities.add({
-        position: entityConfig.position,
-        orientation: entityConfig.orientation,
-        box: { dimensions: new Cesium.Cartesian3(1.5, 8.0, 1.5), material: Cesium.Color.RED }
-      });
+    // UI Interactive Methods
+    function toggleDropdown() {
+      const display = document.getElementById('dropdown-content').style.display;
+      document.getElementById('dropdown-content').style.display = (display === 'block') ? 'none' : 'block';
     }
 
-    // Default back to pencil block first
-    resetToDefaultCube();
-
-    function updateAircraftModel(url) {
-      viewer.entities.remove(airplane);
-      airplane = viewer.entities.add({
-        position: entityConfig.position,
-        orientation: entityConfig.orientation,
-        model: {
-          uri: url,
-          minimumPixelSize: 32,
-          scale: 1.0
-        }
-      });
+    function toggleControlsPanel() {
+      const panel = document.getElementById('controls-panel');
+      panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+      document.getElementById('dropdown-content').style.display = 'none'; // Auto collapse main items
     }
 
-    // Auto-fetches from GitHub Pages repository folder on launch
-    const repoModelPath = './free_cessna_172sp.glb';
-    
-    // Test if the file is present in your GitHub Pages deployment path
-    fetch(repoModelPath, { method: 'HEAD' })
-      .then(res => {
-        if (res.ok) {
-          updateAircraftModel(repoModelPath);
-        } else {
-          console.log("Local asset not built yet. Running on red placeholder layout.");
-        }
-      })
-      .catch(() => console.log("Running engine via local workspace."));
+    // Close menu layout when clicking outside logo window parameters
+    window.addEventListener('click', function(e) {
+      if (!document.getElementById('brand-menu').contains(e.target)) {
+        document.getElementById('dropdown-content').style.display = 'none';
+      }
+    });
 
+    // Integrated Search Navigation Teleport Module
     viewer.geocoder.viewModel.complete.addEventListener(() => {
       const camCartographic = viewer.scene.camera.positionCartographic;
       lon = Cesium.Math.toDegrees(camCartographic.longitude);
@@ -134,27 +132,6 @@
       heading = 0; 
       pitch = 0;
       roll = 0;
-    });
-
-    document.getElementById('file-input').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        const arrayBuffer = event.target.result;
-        const blob = new Blob([arrayBuffer], { type: "application/octet-stream" });
-        const blobUrl = URL.createObjectURL(blob);
-        updateAircraftModel(blobUrl);
-      };
-      reader.readAsArrayBuffer(file);
-    });
-
-    document.getElementById('btn-url').addEventListener('click', function() {
-      const url = document.getElementById('url-input').value.trim();
-      if (url) {
-        updateAircraftModel(url);
-      }
     });
 
     let mouseX = 0, mouseY = 0;
