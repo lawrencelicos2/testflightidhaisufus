@@ -32,7 +32,6 @@
     let lon = -74.0120, lat = 40.7050, alt = 300.0, heading = 0, pitch = 0, roll = 0;
     const speed = 0.0002;
 
-    // Added orientation property here so the box can rotate in 3D space
     const airplane = viewer.entities.add({
       position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
       orientation: new Cesium.CallbackProperty(() => {
@@ -54,20 +53,20 @@
     });
 
     viewer.clock.onTick.addEventListener(() => {
-      // Controls: Pulling down (positive mouseY) now increases pitch/altitude
-      pitch = (mouseY * 45); 
-      roll = (mouseX * 45);
+      // Fixed Flight Physics Direction mapping
+      pitch = (-mouseY * 45); // Mouse down = nose up, Mouse up = nose down
+      roll = (-mouseX * 45);  // Mouse left = bank left, Mouse right = bank right
       heading += (mouseX * 2.0);
       
       const pitchRad = Cesium.Math.toRadians(pitch);
       
-      // Update position based on heading and pitch
+      // Position tracking math updated to match new pitch axis direction
       lon += Math.sin(Cesium.Math.toRadians(heading)) * speed * Math.cos(pitchRad);
       lat += Math.cos(Cesium.Math.toRadians(heading)) * speed * Math.cos(pitchRad);
-      alt -= (pitch * 0.05); // Climbing logic
+      alt += (pitch * 0.05); // Positive pitch now properly climbs altitude
 
-      // Update UI
-      document.getElementById('horizon-disc').style.transform = `rotate(${-roll}deg) translateY(${pitch * 1.5}px)`;
+      // Update HUD interface elements to stay synced
+      document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
       
       viewer.camera.lookAt(airplane.position.getValue(viewer.clock.currentTime), new Cesium.HeadingPitchRange(Cesium.Math.toRadians(heading), Cesium.Math.toRadians(-15), 500));
     });
