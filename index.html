@@ -19,9 +19,15 @@
     .dropdown-item:hover { background: #3182ce; }
     
     /* Integrated Flight Control Panel Layout */
-    #controls-panel { display: none; color: #fff; background: rgba(0, 0, 0, 0.85); padding: 15px; border-radius: 4px; border: 1px solid #718096; margin-top: 5px; width: 200px; font-size: 13px; line-height: 1.5; }
+    #controls-panel { display: none; color: #fff; background: rgba(0, 0, 0, 0.85); padding: 15px; border-radius: 4px; border: 1px solid #718096; margin-top: 5px; width: 220px; font-size: 13px; line-height: 1.5; font-family: sans-serif; }
     #controls-panel h4 { margin: 0 0 8px 0; color: #3182ce; font-size: 14px; }
     
+    /* Smoothing Slider Configuration Styling */
+    .slider-container { margin-top: 12px; padding-top: 10px; border-top: 1px solid #4a5568; }
+    .slider-container label { display: block; font-weight: bold; margin-bottom: 4px; color: #cbd5e0; }
+    .slider-ui { width: 100%; cursor: pointer; accent-color: #3182ce; }
+    .slider-val { float: right; color: #3182ce; font-family: monospace; }
+
     #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; z-index: 1000; }
 
     /* Instrument HUD Layout */
@@ -50,7 +56,11 @@
       • <b>Mouse</b>: Pitch & Roll dynamics<br>
       • <b>Scroll Wheel</b>: Camera zoom distance<br>
       • <b>P Key</b>: Pause simulator physics<br>
-      • <b>Search Bar</b>: Enter city or airfield to teleport 200m over location.
+      
+      <div class="slider-container">
+        <label for="smoothSlider">Rotation Smoothing <span id="smooth-lbl" class="slider-val">0.50</span></label>
+        <input type="range" id="smoothSlider" class="slider-ui" min="0.0" max="1.0" step="0.05" value="0.50" oninput="updateSmoothingFactor(this.value)">
+      </div>
     </div>
   </div>
   
@@ -63,7 +73,6 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">0</span>kn</div>
 
   <script>
-    // Token updated with explicit 2026 epoch signature configuration
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTc4NDQxOX0.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
     
     const viewer = new Cesium.Viewer('cesiumContainer', { 
@@ -79,11 +88,16 @@
       viewer.scene.primitives.add(tileset); 
     });
 
-    // Fixed Spawn Vectors facing Lady Liberty
     let lon = -74.0445;
     let lat = 40.6892;
     let alt = 200.0; 
-    let heading = 0, pitch = 0, roll = 0;
+    let heading = 0;
+    
+    // Split target inputs away from current structural values to process lerp pipeline
+    let pitch = 0, roll = 0;         // Current rendered orientation values
+    let targetPitch = 0, targetRoll = 0; // Target values dictated by mouse positions
+    let smoothingFactor = 0.50;      // 0.0 means instant response, 1.0 means no movement
+    
     const speed = 0.000025; 
     let camDistance = 40; 
     let isPaused = false;
@@ -118,6 +132,11 @@
       document.getElementById('dropdown-content').style.display = 'none';
     }
 
+    function updateSmoothingFactor(val) {
+      smoothingFactor = parseFloat(val);
+      document.getElementById('smooth-lbl').innerText = smoothingFactor.toFixed(2);
+    }
+
     window.addEventListener('click', function(e) {
       if (!document.getElementById('brand-menu').contains(e.target)) {
         document.getElementById('dropdown-content').style.display = 'none';
@@ -132,7 +151,9 @@
       alt = 200.0; 
       heading = 0; 
       pitch = 0;
+      targetPitch = 0;
       roll = 0;
+      targetRoll = 0;
     });
 
     let mouseX = 0, mouseY = 0;
@@ -165,9 +186,21 @@
         return;
       }
 
-      pitch = (-mouseY * 45); 
-      roll = (-mouseX * 45);  
-      heading += (mouseX * 2.0);
+      // Calculate absolute target objectives based on raw input parameters
+      targetPitch = (-mouseY * 45); 
+      targetRoll = (-mouseX * 45);  
+      
+      // Calculate interpolation step speed based on the inverted slider metrics
+      // High value on slider (0.95) = very low lerp interpolation step weight (0.05) = high inertia
+      let interpolationWeight = 1.0 - smoothingFactor;
+      if (interpolationWeight < 0.01) interpolationWeight = 0.01; // Avoid mathematical convergence locks
+
+      // Apply linear interpolation matrices to shift values smoothly frame-over-frame
+      pitch += (targetPitch - pitch) * interpolationWeight;
+      roll += (targetRoll - roll) * interpolationWeight;
+      
+      // Heading turn rates track roll angle momentum smoothly
+      heading += (roll * 0.05);
       
       const pitchRad = Cesium.Math.toRadians(pitch);
       const headingRad = Cesium.Math.toRadians(heading);
