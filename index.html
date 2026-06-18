@@ -61,9 +61,14 @@
     
     viewer.scene.globe.depthTestAgainstTerrain = true;
 
-    Cesium.createOsmBuildingsAsync().then((tileset) => { 
-      tileset.maximumScreenSpaceError = 32; 
-      viewer.scene.primitives.add(tileset); 
+    // Upgraded from generic OSM structural assets to textured Photorealistic global 3D tilesets
+    Cesium.Cesium3DTileset.fromIonAssetId(2275207).then((tileset) => {
+      viewer.scene.primitives.add(tileset);
+    }).catch((error) => {
+      // Fallback seamlessly to standard OSM structures if token access limitations occur
+      Cesium.createOsmBuildingsAsync().then((tileset) => { 
+        viewer.scene.primitives.add(tileset); 
+      });
     });
 
     let lon = -74.0120, lat = 40.7050, alt = 600.0, heading = 0, pitch = 0, roll = 0;
@@ -72,6 +77,7 @@
     let camDistance = 40; 
     let isPaused = false;
 
+    // Red core layout variables
     const entityConfig = {
       position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
       orientation: new Cesium.CallbackProperty(() => {
@@ -82,11 +88,23 @@
           Cesium.Math.toRadians(pitch)
         );
         return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
-      }, false),
-      box: { dimensions: new Cesium.Cartesian3(0.6, 0.6, 0.6), material: Cesium.Color.RED }
+      }, false)
     };
 
-    let airplane = viewer.entities.add(entityConfig);
+    let airplane;
+
+    // Function to re-render aircraft configuration
+    function resetToDefaultCube() {
+      if (airplane) viewer.entities.remove(airplane);
+      airplane = viewer.entities.add({
+        position: entityConfig.position,
+        orientation: entityConfig.orientation,
+        box: { dimensions: new Cesium.Cartesian3(8.0, 8.0, 4.0), material: Cesium.Color.RED }
+      });
+    }
+
+    // Call it explicitly to load the red block right on start
+    resetToDefaultCube();
 
     function updateAircraftModel(url) {
       viewer.entities.remove(airplane);
