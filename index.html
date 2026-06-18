@@ -14,20 +14,22 @@
     #brand-logo { color: #fff; background: rgba(0,0,0,0.8); padding: 10px 20px; font-weight: bold; border-radius: 4px; border: 1px solid #3182ce; cursor: pointer; user-select: none; }
     
     /* Dropdown UI Configuration */
-    #dropdown-content { display: none; position: absolute; top: 100%; left: 0; background: rgba(0,0,0,0.9); margin-top: 5px; border-radius: 4px; border: 1px solid #4a5568; width: 260px; overflow: hidden; }
+    #dropdown-content { display: none; position: absolute; top: 100%; left: 0; background: rgba(0,0,0,0.9); margin-top: 5px; border-radius: 4px; border: 1px solid #4a5568; width: 280px; overflow: hidden; }
     .dropdown-item { color: #fff; padding: 12px 15px; font-size: 14px; text-decoration: none; display: block; cursor: pointer; transition: background 0.2s; }
     .dropdown-item:hover { background: #3182ce; }
     
     /* Integrated Flight Control Panel Layout */
-    #controls-panel { display: none; color: #fff; background: rgba(0, 0, 0, 0.85); padding: 15px; border-radius: 4px; border: 1px solid #718096; margin-top: 5px; width: 260px; font-size: 13px; line-height: 1.5; font-family: sans-serif; max-height: 80vh; overflow-y: auto; }
-    #controls-panel h4 { margin: 0 0 8px 0; color: #3182ce; font-size: 14px; border-bottom: 1px solid #4a5568; padding-bottom: 4px; }
+    #controls-panel { display: none; color: #fff; background: rgba(0, 0, 0, 0.85); padding: 15px; border-radius: 4px; border: 1px solid #718096; margin-top: 5px; width: 280px; font-size: 13px; line-height: 1.5; font-family: sans-serif; max-height: 75vh; overflow-y: auto; }
+    #controls-panel h4 { margin: 12px 0 6px 0; color: #3182ce; font-size: 14px; border-bottom: 1px solid #4a5568; padding-bottom: 4px; }
+    #controls-panel h4:first-of-type { margin-top: 0; }
     
     /* Smoothing Slider Configuration Styling */
-    .slider-container { margin-top: 10px; padding-top: 8px; }
+    .slider-container { margin-top: 8px; padding-top: 4px; }
     .slider-container label { display: block; font-weight: bold; margin-bottom: 4px; color: #cbd5e0; }
     .slider-row { display: flex; align-items: center; gap: 8px; }
     .slider-ui { flex-grow: 1; cursor: pointer; accent-color: #3182ce; }
-    .input-ui { width: 50px; background: #1a202c; border: 1px solid #4a5568; color: #fff; padding: 2px 4px; font-family: monospace; border-radius: 4px; text-align: center; }
+    .input-ui { width: 55px; background: #1a202c; border: 1px solid #4a5568; color: #fff; padding: 2px 4px; font-family: monospace; border-radius: 4px; text-align: center; }
+    .text-input-ui { width: 100%; background: #1a202c; border: 1px solid #4a5568; color: #fff; padding: 5px; border-radius: 4px; box-sizing: border-box; }
 
     /* File Import Button UI styling */
     .file-input-wrapper { margin-top: 12px; padding-top: 10px; border-top: 1px solid #4a5568; }
@@ -77,7 +79,47 @@
         <input type="file" id="glb-loader" accept=".glb" onchange="handleGLBLoad(event)">
       </div>
 
-      <h4>Model Axis Offsets (Deg)</h4>
+      <h4>Component Node Identifiers</h4>
+      <div class="slider-container">
+        <label>Propeller Part Name (e.g., prop)</label>
+        <input type="text" id="propNodeInput" class="text-input-ui" placeholder="Enter mesh node ID..." onchange="updateSubNodes()">
+      </div>
+      <div class="slider-container">
+        <label>Flaps/Control Surfaces Name</label>
+        <input type="text" id="flapNodeInput" class="text-input-ui" placeholder="Enter mesh node ID..." onchange="updateSubNodes()">
+      </div>
+
+      <h4>Model Visual Scale & Pos Offsets</h4>
+      <div class="slider-container">
+        <label>Size Multiplier</label>
+        <div class="slider-row">
+          <input type="range" id="scaleSlider" class="slider-ui" min="1" max="100" value="1" oninput="syncControl('scale', this.value)">
+          <input type="text" id="scaleInput" class="input-ui" value="1" onchange="syncControl('scale', this.value)">
+        </div>
+      </div>
+      <div class="slider-container">
+        <label>Offset Longitude (X)</label>
+        <div class="slider-row">
+          <input type="range" id="offsetXSlider" class="slider-ui" min="-100" max="100" value="0" oninput="syncControl('offsetX', this.value)">
+          <input type="text" id="offsetXInput" class="input-ui" value="0" onchange="syncControl('offsetX', this.value)">
+        </div>
+      </div>
+      <div class="slider-container">
+        <label>Offset Latitude (Y)</label>
+        <div class="slider-row">
+          <input type="range" id="offsetYSlider" class="slider-ui" min="-100" max="100" value="0" oninput="syncControl('offsetY', this.value)">
+          <input type="text" id="offsetYInput" class="input-ui" value="0" onchange="syncControl('offsetY', this.value)">
+        </div>
+      </div>
+      <div class="slider-container">
+        <label>Offset Altitude (Z)</label>
+        <div class="slider-row">
+          <input type="range" id="offsetZSlider" class="slider-ui" min="-100" max="100" value="0" oninput="syncControl('offsetZ', this.value)">
+          <input type="text" id="offsetZInput" class="input-ui" value="0" onchange="syncControl('offsetZ', this.value)">
+        </div>
+      </div>
+
+      <h4>Model Axis Rot Offsets (Deg)</h4>
       <div class="slider-container">
         <label>Heading Offset</label>
         <div class="slider-row">
@@ -85,7 +127,6 @@
           <input type="text" id="offsetHInput" class="input-ui" value="0" onchange="syncControl('offsetH', this.value)">
         </div>
       </div>
-
       <div class="slider-container">
         <label>Pitch Offset</label>
         <div class="slider-row">
@@ -93,21 +134,11 @@
           <input type="text" id="offsetPInput" class="input-ui" value="0" onchange="syncControl('offsetP', this.value)">
         </div>
       </div>
-
       <div class="slider-container">
         <label>Roll Offset</label>
         <div class="slider-row">
           <input type="range" id="offsetRSlider" class="slider-ui" min="0" max="360" value="0" oninput="syncControl('offsetR', this.value)">
           <input type="text" id="offsetRInput" class="input-ui" value="0" onchange="syncControl('offsetR', this.value)">
-        </div>
-      </div>
-
-      <h4>Model Visual Scale</h4>
-      <div class="slider-container">
-        <label>Size Multiplier</label>
-        <div class="slider-row">
-          <input type="range" id="scaleSlider" class="slider-ui" min="1" max="100" value="1" oninput="syncControl('scale', this.value)">
-          <input type="text" id="scaleInput" class="input-ui" value="1" onchange="syncControl('scale', this.value)">
         </div>
       </div>
     </div>
@@ -124,7 +155,6 @@
   <script>
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXvyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Lyapi5jZXNpdW0uY29tIiwiYXVkIjoibGF3cmVuY2UyMTMxMl9kZWZhdWx0IiwiaWF0IjoxNzgxNzg0NDE5fQ.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
     
-    // Explicitly loading a default imagery provider fixes base map loading drops natively
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, 
       animation: false, 
@@ -148,36 +178,41 @@
     let targetPitch = 0, targetRoll = 0; 
     let smoothingFactor = 0.50;      
     
-    // Calibration parameters accessible by the live transformation matrix variables
-    let modelOffsetH = 0;
-    let modelOffsetP = 0;
-    let modelOffsetR = 0;
+    let modelOffsetH = 0, modelOffsetP = 0, modelOffsetR = 0;
+    let modelOffsetX = 0, modelOffsetY = 0, modelOffsetZ = 0;
     let modelScale = 1.0;
     
+    let propNodeName = "";
+    let flapNodeName = "";
+    let propRotationAngle = 0;
+
     let camHeading = 0;
-    
     const speed = 0.000025; 
     let camDistance = 40; 
     let isPaused = false;
     let loadedBlobURL = null;
 
-    const entityConfig = {
-      position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
-      orientation: new Cesium.CallbackProperty(() => {
-        const center = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
-        // Direct integration of offset configurations on top of real-time flight vectors
-        const hpr = new Cesium.HeadingPitchRoll(
-          Cesium.Math.toRadians(heading + modelOffsetH), 
-          Cesium.Math.toRadians(roll + modelOffsetR), 
-          Cesium.Math.toRadians(pitch + modelOffsetP)
-        );
-        return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
-      }, false)
-    };
+    // Conversion values for translating local meter offsets to degrees safely
+    const latConversion = 111320;
+    const positionProperty = new Cesium.CallbackProperty(() => {
+      const lonOffset = modelOffsetX / (latConversion * Math.cos(Cesium.Math.toRadians(lat)));
+      const latOffset = modelOffsetY / latConversion;
+      return Cesium.Cartesian3.fromDegrees(lon + lonOffset, lat + latOffset, alt + modelOffsetZ);
+    }, false);
+
+    const orientationProperty = new Cesium.CallbackProperty(() => {
+      const center = positionProperty.getValue(viewer.clock.currentTime);
+      const hpr = new Cesium.HeadingPitchRoll(
+        Cesium.Math.toRadians(heading + modelOffsetH), 
+        Cesium.Math.toRadians(roll + modelOffsetR), 
+        Cesium.Math.toRadians(pitch + modelOffsetP)
+      );
+      return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
+    }, false);
 
     let airplane = viewer.entities.add({
-      position: entityConfig.position,
-      orientation: entityConfig.orientation,
+      position: positionProperty,
+      orientation: orientationProperty,
       box: { dimensions: new Cesium.Cartesian3(1.5, 8.0, 1.5), material: Cesium.Color.RED }
     });
 
@@ -195,19 +230,25 @@
         viewer.entities.remove(airplane);
 
         airplane = viewer.entities.add({
-          position: entityConfig.position,
-          orientation: entityConfig.orientation,
+          position: positionProperty,
+          orientation: orientationProperty,
           model: {
             uri: loadedBlobURL,
             minimumPixelSize: 64,
-            scale: new Cesium.CallbackProperty(() => modelScale, false)
+            scale: new Cesium.CallbackProperty(() => modelScale, false),
+            runAnimations: false // Disable built-ins so our custom node adjustments handle everything
           }
         });
+        updateSubNodes();
       };
       reader.readAsArrayBuffer(file);
     }
 
-    // Bidirectional layout pipeline binding value data inputs directly to target sliders
+    function updateSubNodes() {
+      propNodeName = document.getElementById('propNodeInput').value.trim();
+      flapNodeName = document.getElementById('flapNodeInput').value.trim();
+    }
+
     function syncControl(type, val) {
       const numVal = parseFloat(val);
       if (isNaN(numVal)) return;
@@ -216,22 +257,22 @@
         smoothingFactor = Math.max(0.5, Math.min(1.0, numVal));
         document.getElementById('smoothSlider').value = smoothingFactor;
         document.getElementById('smoothInput').value = smoothingFactor.toFixed(2);
-      } else if (type === 'offsetH') {
-        modelOffsetH = numVal;
-        document.getElementById('offsetHSlider').value = modelOffsetH;
-        document.getElementById('offsetHInput').value = modelOffsetH;
-      } else if (type === 'offsetP') {
-        modelOffsetP = numVal;
-        document.getElementById('offsetPSlider').value = modelOffsetP;
-        document.getElementById('offsetPInput').value = modelOffsetP;
-      } else if (type === 'offsetR') {
-        modelOffsetR = numVal;
-        document.getElementById('offsetRSlider').value = modelOffsetR;
-        document.getElementById('offsetRInput').value = modelOffsetR;
       } else if (type === 'scale') {
         modelScale = Math.max(1, numVal);
         document.getElementById('scaleSlider').value = modelScale;
         document.getElementById('scaleInput').value = modelScale;
+      } else if (type === 'offsetX') {
+        modelOffsetX = numVal; document.getElementById('offsetXSlider').value = numVal; document.getElementById('offsetXInput').value = numVal;
+      } else if (type === 'offsetY') {
+        modelOffsetY = numVal; document.getElementById('offsetYSlider').value = numVal; document.getElementById('offsetYInput').value = numVal;
+      } else if (type === 'offsetZ') {
+        modelOffsetZ = numVal; document.getElementById('offsetZSlider').value = numVal; document.getElementById('offsetZInput').value = numVal;
+      } else if (type === 'offsetH') {
+        modelOffsetH = numVal; document.getElementById('offsetHSlider').value = numVal; document.getElementById('offsetHInput').value = numVal;
+      } else if (type === 'offsetP') {
+        modelOffsetP = numVal; document.getElementById('offsetPSlider').value = numVal; document.getElementById('offsetPInput').value = numVal;
+      } else if (type === 'offsetR') {
+        modelOffsetR = numVal; document.getElementById('offsetRSlider').value = numVal; document.getElementById('offsetRInput').value = numVal;
       }
     }
 
@@ -256,14 +297,7 @@
       const camCartographic = viewer.scene.camera.positionCartographic;
       lon = Cesium.Math.toDegrees(camCartographic.longitude);
       lat = Cesium.Math.toDegrees(camCartographic.latitude);
-      
-      alt = 200.0; 
-      heading = 0; 
-      camHeading = 0;
-      pitch = 0;
-      targetPitch = 0;
-      roll = 0;
-      targetRoll = 0;
+      alt = 200.0; heading = 0; camHeading = 0; pitch = 0; targetPitch = 0; roll = 0; targetRoll = 0;
     });
 
     let mouseX = 0, mouseY = 0;
@@ -274,11 +308,7 @@
     });
 
     window.addEventListener('wheel', (e) => {
-      if (e.deltaY > 0) {
-        camDistance += 5; 
-      } else {
-        camDistance = Math.max(2, camDistance - 5); 
-      }
+      if (e.deltaY > 0) camDistance += 5; else camDistance = Math.max(2, camDistance - 5);
     });
 
     window.addEventListener('keydown', (e) => {
@@ -290,7 +320,7 @@
 
     viewer.clock.onTick.addEventListener(() => {
       if (isPaused) {
-        const currentPos = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+        const currentPos = positionProperty.getValue(viewer.clock.currentTime);
         viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
         return;
       }
@@ -303,7 +333,6 @@
 
       pitch += (targetPitch - pitch) * interpolationWeight;
       roll += (targetRoll - roll) * interpolationWeight;
-      
       heading -= (roll * 0.05);
       
       const pitchRad = Cesium.Math.toRadians(pitch);
@@ -312,6 +341,27 @@
       lon += Math.sin(headingRad) * speed * Math.cos(pitchRad);
       lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
       alt += Math.sin(pitchRad) * (speed * 100000); 
+
+      // Render custom node rotations if airplane mesh is loaded up
+      if (airplane && airplane.model) {
+        // Continuous rotation matrix transformation for the spinning propeller feature
+        propRotationAngle += 0.5;
+        if (propRotationAngle > Math.PI * 2) propRotationAngle -= Math.PI * 2;
+
+        if (propNodeName !== "") {
+          viewer.scene.primitives.add(new Cesium.ModelNodeTransform({
+            nodeName: propNodeName,
+            transformation: Cesium.Matrix4.fromRotationTranslation(Cesium.Matrix3.fromRotationY(propRotationAngle))
+          }));
+        }
+        // Dynamic pitch rotation mapping to drive your custom flapping surfaces
+        if (flapNodeName !== "") {
+          viewer.scene.primitives.add(new Cesium.ModelNodeTransform({
+            nodeName: flapNodeName,
+            transformation: Cesium.Matrix4.fromRotationTranslation(Cesium.Matrix3.fromRotationX(Cesium.Math.toRadians(pitch * 0.5)))
+          }));
+        }
+      }
 
       document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
       document.getElementById('horizon-degrees').innerText = `${Math.round(pitch)}°`;
@@ -322,7 +372,7 @@
       if (camSpeedMultiplier > 1.0) camSpeedMultiplier = 1.0;
       camHeading += (heading - camHeading) * camSpeedMultiplier;
 
-      const currentPos = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+      const currentPos = positionProperty.getValue(viewer.clock.currentTime);
       viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
     });
   </script>
