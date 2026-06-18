@@ -28,6 +28,12 @@
     .slider-ui { width: 100%; cursor: pointer; accent-color: #3182ce; }
     .slider-val { float: right; color: #3182ce; font-family: monospace; }
 
+    /* File Import Button UI styling */
+    .file-input-wrapper { margin-top: 12px; padding-top: 10px; border-top: 1px solid #4a5568; }
+    .file-label { display: block; background: #2b6cb0; color: #fff; text-align: center; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+    .file-label:hover { background: #3182ce; }
+    #glb-loader { display: none; }
+
     #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; z-index: 1000; }
 
     /* Instrument HUD Layout */
@@ -61,6 +67,11 @@
         <label for="smoothSlider">Rotation Smoothing <span id="smooth-lbl" class="slider-val">0.50</span></label>
         <input type="range" id="smoothSlider" class="slider-ui" min="0.5" max="1.0" step="0.05" value="0.50" oninput="updateSmoothingFactor(this.value)">
       </div>
+
+      <div class="file-input-wrapper">
+        <label for="glb-loader" class="file-label">Load Plane GLB</label>
+        <input type="file" id="glb-loader" accept=".glb" onchange="handleGLBLoad(event)">
+      </div>
     </div>
   </div>
   
@@ -73,7 +84,7 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">0</span>kn</div>
 
   <script>
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTc4NDQxOX0.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXvyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Lyapi5jZXNpdW0uY29tIiwiYXVkIjoibGF3cmVuY2UyMTMxMl9kZWZhdWx0IiwiaWF0IjoxNzgxNzg0NDE5fQ.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
     
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, 
@@ -116,11 +127,40 @@
       }, false)
     };
 
+    // Fallback default red box entity
     let airplane = viewer.entities.add({
       position: entityConfig.position,
       orientation: entityConfig.orientation,
       box: { dimensions: new Cesium.Cartesian3(1.5, 8.0, 1.5), material: Cesium.Color.RED }
     });
+
+    // Reader logic to parse file selections into object data strings locally
+    function handleGLBLoad(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const arrayBuffer = e.target.result;
+        const blob = new Blob([arrayBuffer], { type: "model/gltf-binary" });
+        const blobURL = URL.createObjectURL(blob);
+
+        // Remove old airplane graphic layers safely
+        viewer.entities.remove(airplane);
+
+        // Regenerate aircraft entity utilizing the local blob structural link
+        airplane = viewer.entities.add({
+          position: entityConfig.position,
+          orientation: entityConfig.orientation,
+          model: {
+            uri: blobURL,
+            minimumPixelSize: 64, // Keeps model scalable instead of vanishing at long range distances
+            maximumScale: 20000
+          }
+        });
+      };
+      reader.readAsArrayBuffer(file);
+    }
 
     function toggleDropdown() {
       const display = document.getElementById('dropdown-content').style.display;
@@ -196,7 +236,6 @@
       pitch += (targetPitch - pitch) * interpolationWeight;
       roll += (targetRoll - roll) * interpolationWeight;
       
-      // Auto-turning behavior fully brought back based on roll bank angle
       heading -= (roll * 0.05);
       
       const pitchRad = Cesium.Math.toRadians(pitch);
@@ -211,7 +250,9 @@
       document.getElementById('alt-val').innerText = Math.round(alt);
       document.getElementById('spd-val').innerText = Math.round(speed * 1200000); 
 
-      camHeading += (heading - camHeading) * interpolationWeight;
+      let camSpeedMultiplier = interpolationWeight * 2.5; 
+      if (camSpeedMultiplier > 1.0) camSpeedMultiplier = 1.0;
+      camHeading += (heading - camHeading) * camSpeedMultiplier;
 
       const currentPos = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
       viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
