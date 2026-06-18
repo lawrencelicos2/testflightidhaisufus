@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>1GLWFS</title>
+  <title>GLWFS</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -29,11 +29,13 @@
       viewer.scene.primitives.add(tileset); 
     });
 
-    // Tracking position via Cartesian3 for true 3D direction vectors
     let position = Cesium.Cartesian3.fromDegrees(-74.0120, 40.7050, 300.0);
     let heading = 0, pitch = 0, roll = 0;
     
-    // Top speed cut in half
+    // Target rates for handling flight weight inertia
+    let pitchRate = 0, rollRate = 0, headingRate = 0;
+    const weightFactor = 0.05; // Lower values make the plane feel heavier and less twitchy
+
     const speed = 10.0; 
 
     const airplane = viewer.entities.add({
@@ -56,17 +58,25 @@
     });
 
     viewer.clock.onTick.addEventListener(() => {
-      // Uncapped accumulation for full loops and barrel rolls
-      pitch += (mouseY * 1.5); 
-      roll += (mouseX * 2.0);  
-      heading += (mouseX * 1.0);
+      // Calculate target rotational velocities based on mouse input
+      const targetPitchRate = mouseY * 1.5;
+      const targetRollRate = mouseX * 2.0;
+      const targetHeadingRate = mouseX * 1.0;
 
-      // Wrap angles cleanly between -180 and 180 degrees
+      // Apply mass/weight inertia to smooth out rotations
+      pitchRate += (targetPitchRate - pitchRate) * weightFactor;
+      rollRate += (targetRollRate - rollRate) * weightFactor;
+      headingRate += (targetHeadingRate - headingRate) * weightFactor;
+
+      // Accumulate the weighted rates into flight positions
+      pitch += pitchRate; 
+      roll += rollRate;  
+      heading += headingRate;
+
       pitch = Cesium.Math.negativePiToPi(Cesium.Math.toRadians(pitch));
       roll = Cesium.Math.negativePiToPi(Cesium.Math.toRadians(roll));
       heading = Cesium.Math.negativePiToPi(Cesium.Math.toRadians(heading));
 
-      // Calculate the true 3D forward direction vector based on orientation matrix
       const hpr = new Cesium.HeadingPitchRoll(heading, pitch, roll);
       const orientationMatrix = Cesium.Transforms.headingPitchRollToFixedFrame(position, hpr);
       
@@ -74,17 +84,15 @@
       const worldForward = Cesium.Matrix4.multiplyByPointAsVector(orientationMatrix, localForward, new Cesium.Cartesian3());
       Cesium.Cartesian3.normalize(worldForward, worldForward);
 
-      // Move directly forward into the 3D space vector
       const movement = Cesium.Cartesian3.multiplyByScalar(worldForward, speed, new Cesium.Cartesian3());
       Cesium.Cartesian3.add(position, movement, position);
 
-      // Keep the HUD synced up with real-time values
       const pitchDeg = Cesium.Math.toDegrees(pitch);
       const rollDeg = Cesium.Math.toDegrees(roll);
       document.getElementById('horizon-disc').style.transform = `rotate(${rollDeg}deg) translateY(${pitchDeg * 1.5}px)`;
       
-      // Camera view is closer now (Range set to 50 instead of 500)
-      viewer.camera.lookAt(position, new Cesium.HeadingPitchRange(heading, Cesium.Math.toRadians(-15), 50));
+      // Camera view range restored to 500
+      viewer.camera.lookAt(position, new Cesium.HeadingPitchRange(heading, Cesium.Math.toRadians(-15), 500));
     });
   </script>
 </body>
