@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>1glwfs</title>
+  <title>glwfs</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -73,8 +73,8 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">0</span>kn</div>
 
   <script>
-    // CLEAN VERIFIED ACCOUNT ACCESS TOKEN STRING SPECIFIED FOR 2026 VALIDATION
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTc4NDQxOX0.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
+    // CLEANED TOKEN FIELD CONFIGURATION
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTw4NDQxOX0.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
     
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, 
@@ -98,7 +98,6 @@
     let targetPitch = 0, targetRoll = 0; 
     let smoothingFactor = 0.50;      
     
-    // Smooth camera target state track variables
     let camHeading = 0;
     
     const speed = 0.000025; 
@@ -111,7 +110,7 @@
         const center = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
         const hpr = new Cesium.HeadingPitchRoll(
           Cesium.Math.toRadians(heading), 
-          Cesium.Math.toRadians(pitch), // Swapped sequence into standard ISO layout structure
+          Cesium.Math.toRadians(pitch), 
           Cesium.Math.toRadians(roll)
         );
         return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
@@ -189,9 +188,8 @@
         return;
       }
 
-      // Uncapped dynamic inputs: Mouse maps directly to rotational targets
       targetPitch = (-mouseY * 85); 
-      targetRoll = (-mouseX * 180); // Expanded boundary allows continuous acrobatics
+      targetRoll = (-mouseX * 180); 
       
       let interpolationWeight = 1.0 - smoothingFactor;
       if (interpolationWeight < 0.01) interpolationWeight = 0.01;
@@ -199,32 +197,21 @@
       pitch += (targetPitch - pitch) * interpolationWeight;
       roll += (targetRoll - roll) * interpolationWeight;
       
-      // True Aerodynamic Coupling: Roll angle turns you ONLY when pitching/pulling upward
-      // We convert values to radians to calculate lift lift vectors accurately
+      // Heading turn logic tracking removed completely as requested
+      // The roll now behaves purely visually without pulling the flight vector along
+      
       let pitchRad = Cesium.Math.toRadians(pitch);
-      let rollRad = Cesium.Math.toRadians(roll);
-      
-      if (Math.abs(pitch) > 0.5) {
-        // Turning rate maps directly to lift extraction vector: tan(roll) * sin(pitch)
-        let turnRate = Math.tan(rollRad) * Math.sin(pitchRad) * 1.2;
-        // Limit turn rate speed explosions at steep perpendicular 90 degree clip thresholds
-        heading -= Cesium.Math.toDegrees(Math.max(-0.08, Math.min(0.08, turnRate)));
-      }
-      
       let headingRad = Cesium.Math.toRadians(heading);
       
-      // Coordinate trajectory moves along its combined orientation components
       lon += Math.sin(headingRad) * speed * Math.cos(pitchRad);
       lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
       alt += Math.sin(pitchRad) * (speed * 100000); 
 
-      // Render HUD UI elements
       document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
       document.getElementById('horizon-degrees').innerText = `${Math.round(pitch)}°`;
       document.getElementById('alt-val').innerText = Math.round(alt);
       document.getElementById('spd-val').innerText = Math.round(speed * 1200000); 
 
-      // Smooth Camera Follow Pipeline
       camHeading += (heading - camHeading) * interpolationWeight;
       
       const currentPos = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
