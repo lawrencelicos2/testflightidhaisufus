@@ -26,7 +26,7 @@
   <script>
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1YWMyNTk2MC0yNDhhLTQyMTQtYmM3My1jYzBlMDJlN2FjN2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTc3NjEyNH0.-Xv456V3XvbRuZNtd-5-LdWzeTZctKKFcsE6v_b6TXg';
     
-    // Initializing with 'false' removes the extra UI widgets
+    // Initializing with 'false' to keep it clean and minimal
     const viewer = new Cesium.Viewer('cesiumContainer', {
       timeline: false,
       animation: false,
@@ -53,6 +53,7 @@
     const camUI = document.getElementById('cam-pos');
 
     viewer.clock.onTick.addEventListener(() => {
+      // Keep camera locked on the moving entity
       viewer.camera.lookAt(planePos, new Cesium.HeadingPitchRange(0, -0.5, 500));
       
       const c = viewer.camera.position;
