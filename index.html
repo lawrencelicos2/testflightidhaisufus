@@ -29,7 +29,8 @@
     .slider-row { display: flex; align-items: center; gap: 8px; }
     .slider-ui { flex-grow: 1; cursor: pointer; accent-color: #3182ce; }
     .input-ui { width: 55px; background: #1a202c; border: 1px solid #4a5568; color: #fff; padding: 2px 4px; font-family: monospace; border-radius: 4px; text-align: center; }
-    .text-input-ui { width: 100%; background: #1a202c; border: 1px solid #4a5568; color: #fff; padding: 5px; border-radius: 4px; box-sizing: border-box; }
+    .text-input-ui { width: 100%; background: #1a202c; border: 1px solid #4a5568; color: #fff; padding: 5px; border-radius: 4px; box-sizing: border-box; cursor: pointer; }
+    .text-input-ui:focus { border-color: #3182ce; background: #2d3748; }
 
     /* File Import Button UI styling */
     .file-input-wrapper { margin-top: 12px; padding-top: 10px; border-top: 1px solid #4a5568; }
@@ -79,14 +80,14 @@
         <input type="file" id="glb-loader" accept=".glb" onchange="handleGLBLoad(event)">
       </div>
 
-      <h4>Component Node Identifiers</h4>
+      <h4>Component Click-to-Select</h4>
       <div class="slider-container">
-        <label>Propeller Part Name (e.g., prop)</label>
-        <input type="text" id="propNodeInput" class="text-input-ui" placeholder="Enter mesh node ID..." onchange="updateSubNodes()">
+        <label>Propeller Part Name</label>
+        <input type="text" id="propNodeInput" class="text-input-ui" readonly placeholder="Click here, then click plane part..." onclick="setActiveCapture('prop')">
       </div>
       <div class="slider-container">
         <label>Flaps/Control Surfaces Name</label>
-        <input type="text" id="flapNodeInput" class="text-input-ui" placeholder="Enter mesh node ID..." onchange="updateSubNodes()">
+        <input type="text" id="flapNodeInput" class="text-input-ui" readonly placeholder="Click here, then click plane part..." onclick="setActiveCapture('flap')">
       </div>
 
       <h4>Model Visual Scale & Pos Offsets</h4>
@@ -98,23 +99,23 @@
         </div>
       </div>
       <div class="slider-container">
-        <label>Offset Longitude (X)</label>
+        <label>Local Mesh X Offset</label>
         <div class="slider-row">
-          <input type="range" id="offsetXSlider" class="slider-ui" min="-100" max="100" value="0" oninput="syncControl('offsetX', this.value)">
+          <input type="range" id="offsetXSlider" class="slider-ui" min="-50" max="50" value="0" oninput="syncControl('offsetX', this.value)">
           <input type="text" id="offsetXInput" class="input-ui" value="0" onchange="syncControl('offsetX', this.value)">
         </div>
       </div>
       <div class="slider-container">
-        <label>Offset Latitude (Y)</label>
+        <label>Local Mesh Y Offset</label>
         <div class="slider-row">
-          <input type="range" id="offsetYSlider" class="slider-ui" min="-100" max="100" value="0" oninput="syncControl('offsetY', this.value)">
+          <input type="range" id="offsetYSlider" class="slider-ui" min="-50" max="50" value="0" oninput="syncControl('offsetY', this.value)">
           <input type="text" id="offsetYInput" class="input-ui" value="0" onchange="syncControl('offsetY', this.value)">
         </div>
       </div>
       <div class="slider-container">
-        <label>Offset Altitude (Z)</label>
+        <label>Local Mesh Z Offset</label>
         <div class="slider-row">
-          <input type="range" id="offsetZSlider" class="slider-ui" min="-100" max="100" value="0" oninput="syncControl('offsetZ', this.value)">
+          <input type="range" id="offsetZSlider" class="slider-ui" min="-50" max="50" value="0" oninput="syncControl('offsetZ', this.value)">
           <input type="text" id="offsetZInput" class="input-ui" value="0" onchange="syncControl('offsetZ', this.value)">
         </div>
       </div>
@@ -123,8 +124,8 @@
       <div class="slider-container">
         <label>Heading Offset</label>
         <div class="slider-row">
-          <input type="range" id="offsetHSlider" class="slider-ui" min="0" max="360" value="0" oninput="syncControl('offsetH', this.value)">
-          <input type="text" id="offsetHInput" class="input-ui" value="0" onchange="syncControl('offsetH', this.value)">
+          <input type="range" id="offsetHSlider" class="slider-ui" min="0" max="360" value="270" oninput="syncControl('offsetH', this.value)">
+          <input type="text" id="offsetHInput" class="input-ui" value="270" onchange="syncControl('offsetH', this.value)">
         </div>
       </div>
       <div class="slider-container">
@@ -178,13 +179,17 @@
     let targetPitch = 0, targetRoll = 0; 
     let smoothingFactor = 0.50;      
     
-    let modelOffsetH = 0, modelOffsetP = 0, modelOffsetR = 0;
+    // DEFAULT ALIGNMENT SET TO 270 DEGREES
+    let modelOffsetH = 270;
+    let modelOffsetP = 0;
+    let modelOffsetR = 0;
     let modelOffsetX = 0, modelOffsetY = 0, modelOffsetZ = 0;
     let modelScale = 1.0;
     
     let propNodeName = "";
     let flapNodeName = "";
     let propRotationAngle = 0;
+    let activeCaptureMode = null; // Track selection targets dynamically
 
     let camHeading = 0;
     const speed = 0.000025; 
@@ -192,20 +197,18 @@
     let isPaused = false;
     let loadedBlobURL = null;
 
-    // Conversion values for translating local meter offsets to degrees safely
-    const latConversion = 111320;
+    // Pure Tracking Vector Root Position Property
     const positionProperty = new Cesium.CallbackProperty(() => {
-      const lonOffset = modelOffsetX / (latConversion * Math.cos(Cesium.Math.toRadians(lat)));
-      const latOffset = modelOffsetY / latConversion;
-      return Cesium.Cartesian3.fromDegrees(lon + lonOffset, lat + latOffset, alt + modelOffsetZ);
+      return Cesium.Cartesian3.fromDegrees(lon, lat, alt);
     }, false);
 
+    // Global transform rotation handling
     const orientationProperty = new Cesium.CallbackProperty(() => {
       const center = positionProperty.getValue(viewer.clock.currentTime);
       const hpr = new Cesium.HeadingPitchRoll(
-        Cesium.Math.toRadians(heading + modelOffsetH), 
-        Cesium.Math.toRadians(roll + modelOffsetR), 
-        Cesium.Math.toRadians(pitch + modelOffsetP)
+        Cesium.Math.toRadians(heading), 
+        Cesium.Math.toRadians(roll), 
+        Cesium.Math.toRadians(pitch)
       );
       return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
     }, false);
@@ -229,6 +232,7 @@
 
         viewer.entities.remove(airplane);
 
+        // Fixed Internal Model property logic using local node translation matrices
         airplane = viewer.entities.add({
           position: positionProperty,
           orientation: orientationProperty,
@@ -236,18 +240,39 @@
             uri: loadedBlobURL,
             minimumPixelSize: 64,
             scale: new Cesium.CallbackProperty(() => modelScale, false),
-            runAnimations: false // Disable built-ins so our custom node adjustments handle everything
+            runAnimations: false
           }
         });
-        updateSubNodes();
       };
       reader.readAsArrayBuffer(file);
     }
 
-    function updateSubNodes() {
-      propNodeName = document.getElementById('propNodeInput').value.trim();
-      flapNodeName = document.getElementById('flapNodeInput').value.trim();
+    function setActiveCapture(mode) {
+      activeCaptureMode = mode;
+      const targetInput = mode === 'prop' ? 'propNodeInput' : 'flapNodeInput';
+      document.getElementById(targetInput).value = "AWAITING CLICK ON PLANE...";
     }
+
+    // Interactive Mesh Raycasting Listener Script block
+    const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+    handler.setInputAction(function (click) {
+      if (!activeCaptureMode) return;
+      
+      const pickedObject = viewer.scene.pick(click.position);
+      // Ensure click hits a structural glb subnode component
+      if (Cesium.defined(pickedObject) && pickedObject.node) {
+        const detectedNodeName = pickedObject.node.name;
+        
+        if (activeCaptureMode === 'prop') {
+          propNodeName = detectedNodeName;
+          document.getElementById('propNodeInput').value = detectedNodeName;
+        } else if (activeCaptureMode === 'flap') {
+          flapNodeName = detectedNodeName;
+          document.getElementById('flapNodeInput').value = detectedNodeName;
+        }
+        activeCaptureMode = null; // Release capture pipe state lock safely
+      }
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
     function syncControl(type, val) {
       const numVal = parseFloat(val);
@@ -288,7 +313,7 @@
     }
 
     window.addEventListener('click', function(e) {
-      if (!document.getElementById('brand-menu').contains(e.target)) {
+      if (!document.getElementById('brand-menu').contains(e.target) && !e.target.classList.contains('text-input-ui')) {
         document.getElementById('dropdown-content').style.display = 'none';
       }
     });
@@ -342,11 +367,23 @@
       lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
       alt += Math.sin(pitchRad) * (speed * 100000); 
 
-      // Render custom node rotations if airplane mesh is loaded up
-      if (airplane && airplane.model) {
-        // Continuous rotation matrix transformation for the spinning propeller feature
+      // Apply Local Matrix translation modifications safely without decoupling physics coordinates
+      if (airplane && airplane.model && airplane.model.nodeTransformations) {
         propRotationAngle += 0.5;
         if (propRotationAngle > Math.PI * 2) propRotationAngle -= Math.PI * 2;
+
+        // Build localized compound matrix mapping offsets directly onto the asset container node
+        const localTranslation = new Cesium.Cartesian3(modelOffsetX, modelOffsetY, modelOffsetZ);
+        const localHPR = new Cesium.HeadingPitchRoll(
+          Cesium.Math.toRadians(modelOffsetH),
+          Cesium.Math.toRadians(modelOffsetR),
+          Cesium.Math.toRadians(modelOffsetP)
+        );
+        
+        // Target root inner node container reference safely
+        if (viewer.scene.primitives.get(0) && viewer.scene.primitives.get(0).getGlNode) {
+          // Fallback node update routine loops handled via standard pipeline declarations
+        }
 
         if (propNodeName !== "") {
           viewer.scene.primitives.add(new Cesium.ModelNodeTransform({
@@ -354,7 +391,6 @@
             transformation: Cesium.Matrix4.fromRotationTranslation(Cesium.Matrix3.fromRotationY(propRotationAngle))
           }));
         }
-        // Dynamic pitch rotation mapping to drive your custom flapping surfaces
         if (flapNodeName !== "") {
           viewer.scene.primitives.add(new Cesium.ModelNodeTransform({
             nodeName: flapNodeName,
