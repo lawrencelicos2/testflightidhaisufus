@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs</title>
+  <title>glwfs1</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -10,15 +10,28 @@
     #cesiumContainer { width: 100%; height: 100%; }
     #brand-logo { position: absolute; top: 20px; left: 20px; color: #fff; background: rgba(0,0,0,0.6); padding: 10px 20px; font-family: sans-serif; font-weight: bold; z-index: 1000; border-radius: 4px; }
     #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; z-index: 1000; }
+    
+    /* Instrument HUD Layout */
     #horizon-indicator { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 120px; height: 120px; background: #1a202c; border: 3px solid #718096; border-radius: 50%; overflow: hidden; z-index: 1002; }
-    #horizon-disc { width: 120px; height: 120px; background: linear-gradient(to bottom, #2b6cb0 50%, #744210 50%); transition: transform 0.05s linear; }
+    #horizon-disc { width: 120px; height: 120px; background: linear-gradient(to bottom, #2b6cb0 50%, #744210 50%); transition: transform 0.05s linear; position: relative; }
+    #horizon-degrees { position: absolute; width: 100%; text-align: center; top: 50%; transform: translateY(-50%); color: #fff; font-family: monospace; font-size: 12px; font-weight: bold; text-shadow: 1px 1px 2px #000; pointer-events: none; }
+    
+    #alt-indicator { position: absolute; bottom: 30px; left: calc(50% - 160px); width: 80px; height: 40px; background: rgba(0,0,0,0.7); border: 2px solid #718096; color: #0f0; font-family: monospace; text-align: center; font-size: 12px; border-radius: 4px; z-index: 1002; padding-top: 5px; }
+    #spd-indicator { position: absolute; bottom: 30px; left: calc(50% + 90px); width: 80px; height: 40px; background: rgba(0,0,0,0.7); border: 2px solid #718096; color: #0f0; font-family: monospace; text-align: center; font-size: 12px; border-radius: 4px; z-index: 1002; padding-top: 5px; }
   </style>
 </head>
 <body>
   <div id="cesiumContainer"></div>
   <div id="brand-logo">GLWFS</div>
   <div id="crosshair"></div>
-  <div id="horizon-indicator"><div id="horizon-disc"></div></div>
+  
+  <div id="horizon-indicator">
+    <div id="horizon-disc">
+      <div id="horizon-degrees">0°</div>
+    </div>
+  </div>
+  <div id="alt-indicator">ALT<br><span id="alt-val">0</span>m</div>
+  <div id="spd-indicator">SPD<br><span id="spd-val">0</span>kn</div>
 
   <script>
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1YWMyNTk2MC0yNDhhLTQyMTQtYmM3My1jYzBlMDJlN2FjN2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTc3NjEyNH0.-Xv456V3XvbRuZNtd-5-LdWzeTZctKKFcsE6v_b6TXg';
@@ -30,9 +43,10 @@
     });
 
     let lon = -74.0120, lat = 40.7050, alt = 300.0, heading = 0, pitch = 0, roll = 0;
-    // Speed adjusted for geographic degree step increments
     const speed = 0.0001; 
+    let camDistance = 150; // Dynamic camera distance variable
 
+    // Shrunk dimensions from 10 to 2 to make you feel tiny inside the city framework
     const airplane = viewer.entities.add({
       position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
       orientation: new Cesium.CallbackProperty(() => {
@@ -44,7 +58,7 @@
         );
         return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
       }, false),
-      box: { dimensions: new Cesium.Cartesian3(10, 10, 10), material: Cesium.Color.RED }
+      box: { dimensions: new Cesium.Cartesian3(2, 2, 2), material: Cesium.Color.RED }
     });
 
     let mouseX = 0, mouseY = 0;
@@ -53,8 +67,16 @@
       mouseY = 0 - ((e.clientY / window.innerHeight) * 2 - 1);
     });
 
+    // Scroll wheel adjusts camera zoom range directly without breaking absolute position values
+    window.addEventListener('wheel', (e) => {
+      if (e.deltaY > 0) {
+        camDistance += 20; // Scroll out
+      } else {
+        camDistance = Math.max(10, camDistance - 20); // Scroll in
+      }
+    });
+
     viewer.clock.onTick.addEventListener(() => {
-      // First control mapping structure restored
       pitch = (-mouseY * 45); 
       roll = (-mouseX * 45);  
       heading += (mouseX * 2.0);
@@ -62,15 +84,18 @@
       const pitchRad = Cesium.Math.toRadians(pitch);
       const headingRad = Cesium.Math.toRadians(heading);
       
-      // True 3D forward translation using trigonometric sin/cos matrix calculations
       lon += Math.sin(headingRad) * speed * Math.cos(pitchRad);
       lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
-      alt += Math.sin(pitchRad) * (speed * 100000); // Direct vertical forward vector translation
+      alt += Math.sin(pitchRad) * (speed * 100000); 
 
+      // Display Pitch Degrees and update flight instruments UI HUD panels
       document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
-      
+      document.getElementById('horizon-degrees').innerText = `${Math.round(pitch)}°`;
+      document.getElementById('alt-val').innerText = Math.round(alt);
+      document.getElementById('spd-val').innerText = Math.round(speed * 300000); // Scaled display knots equivalent
+
       const currentPos = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
-      viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(headingRad, Cesium.Math.toRadians(-15), 500));
+      viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(headingRad, Cesium.Math.toRadians(-15), camDistance));
     });
   </script>
 </body>
