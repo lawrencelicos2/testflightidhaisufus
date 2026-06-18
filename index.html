@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs1</title>
+  <title>glwfs</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -42,11 +42,11 @@
       viewer.scene.primitives.add(tileset); 
     });
 
-    let lon = -74.0120, lat = 40.7050, alt = 300.0, heading = 0, pitch = 0, roll = 0;
-    const speed = 0.0001; 
-    let camDistance = 150; // Dynamic camera distance variable
+    // Altitude raised to 600m to separate the camera from the ground plane distortion
+    let lon = -74.0120, lat = 40.7050, alt = 600.0, heading = 0, pitch = 0, roll = 0;
+    const speed = 0.00015; 
+    let camDistance = 150; 
 
-    // Shrunk dimensions from 10 to 2 to make you feel tiny inside the city framework
     const airplane = viewer.entities.add({
       position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
       orientation: new Cesium.CallbackProperty(() => {
@@ -67,12 +67,11 @@
       mouseY = 0 - ((e.clientY / window.innerHeight) * 2 - 1);
     });
 
-    // Scroll wheel adjusts camera zoom range directly without breaking absolute position values
     window.addEventListener('wheel', (e) => {
       if (e.deltaY > 0) {
-        camDistance += 20; // Scroll out
+        camDistance += 20; 
       } else {
-        camDistance = Math.max(10, camDistance - 20); // Scroll in
+        camDistance = Math.max(10, camDistance - 20); 
       }
     });
 
@@ -88,11 +87,10 @@
       lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
       alt += Math.sin(pitchRad) * (speed * 100000); 
 
-      // Display Pitch Degrees and update flight instruments UI HUD panels
       document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
       document.getElementById('horizon-degrees').innerText = `${Math.round(pitch)}°`;
       document.getElementById('alt-val').innerText = Math.round(alt);
-      document.getElementById('spd-val').innerText = Math.round(speed * 300000); // Scaled display knots equivalent
+      document.getElementById('spd-val').innerText = Math.round(speed * 300000); 
 
       const currentPos = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
       viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(headingRad, Cesium.Math.toRadians(-15), camDistance));
