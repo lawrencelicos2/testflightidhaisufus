@@ -63,7 +63,8 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">0</span>kn</div>
 
   <script>
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1YWMyNTk2MC0yNDhhLTQyMTQtYmM3My1jYzBlMDJlN2FjN2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTtext6YwM3My1jYzBlMDJlN2FjN2Ei.-Xv456V3XvbRuZNtd-5-LdWzeTZctKKFcsE6v_b6TXg';
+    // Injected your active token right here:
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTY4MTc4NDQxOX0.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
     
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, 
@@ -78,7 +79,11 @@
       viewer.scene.primitives.add(tileset); 
     });
 
-    let lon = -74.0120, lat = 40.7050, alt = 600.0, heading = 0, pitch = 0, roll = 0;
+    // Spawn point locked directly above Liberty Island, NYC
+    let lon = -74.0445;
+    let lat = 40.6892;
+    let alt = 200.0; 
+    let heading = 0, pitch = 0, roll = 0;
     const speed = 0.000025; 
     let camDistance = 40; 
     let isPaused = false;
@@ -96,14 +101,12 @@
       }, false)
     };
 
-    // Constant pencil geometric rendering template 
     let airplane = viewer.entities.add({
       position: entityConfig.position,
       orientation: entityConfig.orientation,
       box: { dimensions: new Cesium.Cartesian3(1.5, 8.0, 1.5), material: Cesium.Color.RED }
     });
 
-    // UI Interactive Methods
     function toggleDropdown() {
       const display = document.getElementById('dropdown-content').style.display;
       document.getElementById('dropdown-content').style.display = (display === 'block') ? 'none' : 'block';
@@ -112,17 +115,15 @@
     function toggleControlsPanel() {
       const panel = document.getElementById('controls-panel');
       panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
-      document.getElementById('dropdown-content').style.display = 'none'; // Auto collapse main items
+      document.getElementById('dropdown-content').style.display = 'none';
     }
 
-    // Close menu layout when clicking outside logo window parameters
     window.addEventListener('click', function(e) {
       if (!document.getElementById('brand-menu').contains(e.target)) {
         document.getElementById('dropdown-content').style.display = 'none';
       }
     });
 
-    // Integrated Search Navigation Teleport Module
     viewer.geocoder.viewModel.complete.addEventListener(() => {
       const camCartographic = viewer.scene.camera.positionCartographic;
       lon = Cesium.Math.toDegrees(camCartographic.longitude);
