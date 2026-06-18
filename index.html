@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs</title>
+  <title>1glwfs</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -53,8 +53,8 @@
     </div>
     <div id="controls-panel">
       <h4>Navigation & Control</h4>
-      • <b>Mouse Left/Right</b>: Continuous Roll Speed<br>
-      • <b>Mouse Up/Down</b>: Pitch Rate Target<br>
+      • <b>Mouse Left/Right</b>: Continuous Roll Rate<br>
+      • <b>Mouse Up/Down</b>: Continuous Pitch Rate<br>
       • <b>Scroll Wheel</b>: Camera zoom distance<br>
       • <b>P Key</b>: Pause simulator physics<br>
       
@@ -95,12 +95,11 @@
     let heading = 0;
     
     let pitch = 0, roll = 0;         
-    let targetPitch = 0; 
     let smoothingFactor = 0.50;      
     
     let camHeading = 0;
+    let camPitch = -15;
     
-    // Using coordinate speeds scaled directly to the terrain environment grid
     const speed = 0.000025; 
     let camDistance = 40; 
     let isPaused = false;
@@ -109,6 +108,7 @@
       position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
       orientation: new Cesium.CallbackProperty(() => {
         const center = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+        // Corrected orientation mapping back to working layout structure
         const hpr = new Cesium.HeadingPitchRoll(
           Cesium.Math.toRadians(heading), 
           Cesium.Math.toRadians(roll), 
@@ -155,7 +155,6 @@
       heading = 0; 
       camHeading = 0;
       pitch = 0;
-      targetPitch = 0;
       roll = 0;
     });
 
@@ -163,7 +162,7 @@
     window.addEventListener('mousemove', (e) => {
       if (isPaused) return;
       mouseX = (e.clientX / window.innerWidth) * 2 - 1;
-      mouseY = 0 - ((e.clientY / window.innerHeight) * 2 - 1);
+      mouseY = (e.clientY / window.innerHeight) * 2 - 1; // Direct standard linear axis translation
     });
 
     window.addEventListener('wheel', (e) => {
@@ -184,22 +183,24 @@
     viewer.clock.onTick.addEventListener(() => {
       if (isPaused) {
         const currentPos = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
-        viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
+        viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(camPitch), camDistance));
         return;
       }
 
-      // Pitch targets remain bound directly to the vertical mouse axis
-      targetPitch = (-mouseY * 45); 
-      
+      // Linear interpolation configuration logic values
       let interpolationWeight = 1.0 - smoothingFactor;
       if (interpolationWeight < 0.01) interpolationWeight = 0.01;
 
-      pitch += (targetPitch - pitch) * interpolationWeight;
-      
-      // UNCAPPED ROLL: Mouse X acts as a roll speed factor. It continually accumulates.
+      // UNCAPPED ACCUMULATED PITCH (Linear Rate matching Roll)
+      if (Math.abs(mouseY) > 0.05) {
+        pitch += (mouseY * 2.0); // Smooth matching rate, non-exponential
+        if (pitch > 180) pitch -= 360;
+        if (pitch < -180) pitch += 360;
+      }
+
+      // UNCAPPED ACCUMULATED ROLL (Balanced at half speed)
       if (Math.abs(mouseX) > 0.05) {
-        roll += (mouseX * 4.0); // Adjust this value to make continuous rolling faster/slower
-        // Keep roll bound inside standard 0-360 boundaries loops gracefully
+        roll += (mouseX * 2.0); // Exact half-speed reduction
         if (roll > 180) roll -= 360;
         if (roll < -180) roll += 360;
       }
@@ -207,22 +208,26 @@
       let pitchRad = Cesium.Math.toRadians(pitch);
       let headingRad = Cesium.Math.toRadians(heading);
       
-      // Moving directly forward along the nose vector direction
+      // True flight vector calculations (Moving directly where the aircraft's nose points)
       lon += Math.sin(headingRad) * speed * Math.cos(pitchRad);
       lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
-      
-      // Moving up/down directly modifies absolute altitude based purely on pitch metrics
-      alt += Math.sin(pitchRad) * (speed * 111320); // Multiplier converts degrees safely to meters
+      alt += Math.sin(pitchRad) * (speed * 111320); 
 
+      // Display metrics in HTML overlay
       document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
       document.getElementById('horizon-degrees').innerText = `${Math.round(pitch)}°`;
       document.getElementById('alt-val').innerText = Math.round(alt);
       document.getElementById('spd-val').innerText = Math.round(speed * 1200000); 
 
+      // Smooth Camera tracking orientation
       camHeading += (heading - camHeading) * interpolationWeight;
+      camPitch += ((-15 + pitch) - camPitch) * interpolationWeight;
       
+      // Limit camera pitch loop clamping to avoid view locks
+      camPitch = Math.max(-85, Math.min(85, camPitch));
+
       const currentPos = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
-      viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
+      viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(camPitch), camDistance));
     });
   </script>
 </body>
