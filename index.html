@@ -12,9 +12,10 @@
     #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; z-index: 1000; }
     
     /* Control Panel UI */
-    #upload-container { position: absolute; top: 20px; right: 20px; z-index: 1000; }
+    #upload-container { position: absolute; top: 20px; right: 20px; z-index: 1000; display: flex; gap: 8px; }
     .btn-upload { background: #3182ce; color: #fff; border: none; padding: 10px 15px; font-family: sans-serif; font-weight: bold; font-size: 13px; border-radius: 4px; cursor: pointer; transition: background 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
     .btn-upload:hover { background: #2b6cb0; }
+    #url-input { background: rgba(0, 0, 0, 0.8); color: #fff; border: 2px solid #3182ce; padding: 8px; border-radius: 4px; font-family: sans-serif; width: 200px; }
     #file-input { display: none; }
 
     /* Instrument HUD Layout */
@@ -35,7 +36,9 @@
   <div id="pause-overlay">PAUSED</div>
   
   <div id="upload-container">
-    <button class="btn-upload" onclick="document.getElementById('file-input').click()">Import 3D Model (.glb / .gltf)</button>
+    <input type="text" id="url-input" placeholder="Paste .glb URL here...">
+    <button class="btn-upload" id="btn-url">Load URL</button>
+    <button class="btn-upload" onclick="document.getElementById('file-input').click()">Or Choose File</button>
     <input type="file" id="file-input" accept=".glb,.gltf">
   </div>
   
@@ -48,7 +51,7 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">0</span>kn</div>
 
   <script>
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1YWMyNTk2MC0yNDhhLTQyMTQtYmM3My1jYzBlMDJlN2FjN2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MT76MTkyNH0.-Xv456V3XvbRuZNtd-5-LdWzeTZctKKFcsE6v_b6TXg';
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1YWMyNTk2MC0yNDhhLTQyMTQtYmM3My1jYzBlMDJlN2FjN2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTc3NjEyNH0.-Xv456V3XvbRuZNtd-5-LdWzeTZctKKFcsE6v_b6TXg';
     
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, 
@@ -69,7 +72,6 @@
     let camDistance = 40; 
     let isPaused = false;
 
-    // Base properties object for the airplane configuration
     const entityConfig = {
       position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
       orientation: new Cesium.CallbackProperty(() => {
@@ -86,7 +88,21 @@
 
     let airplane = viewer.entities.add(entityConfig);
 
-    // Runtime Local File Reader handler for runtime .gltf/.glb ingestion
+    // Shared function to update model source
+    function updateAircraftModel(url) {
+      viewer.entities.remove(airplane);
+      airplane = viewer.entities.add({
+        position: entityConfig.position,
+        orientation: entityConfig.orientation,
+        model: {
+          uri: url,
+          minimumPixelSize: 32,
+          scale: 1.0
+        }
+      });
+    }
+
+    // Local File Handler
     document.getElementById('file-input').addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -96,22 +112,17 @@
         const arrayBuffer = event.target.result;
         const blob = new Blob([arrayBuffer], { type: "application/octet-stream" });
         const blobUrl = URL.createObjectURL(blob);
-
-        // Remove old box entity representation
-        viewer.entities.remove(airplane);
-
-        // Re-inject aircraft state tracking pointing directly to your uploaded model data
-        airplane = viewer.entities.add({
-          position: entityConfig.position,
-          orientation: entityConfig.orientation,
-          model: {
-            uri: blobUrl,
-            minimumPixelSize: 32,
-            scale: 1.0 // Adjust scalar variables directly inside here if model geometry changes scale
-          }
-        });
+        updateAircraftModel(blobUrl);
       };
       reader.readAsArrayBuffer(file);
+    });
+
+    // Remote URL Input Handler
+    document.getElementById('btn-url').addEventListener('click', function() {
+      const url = document.getElementById('url-input').value.trim();
+      if (url) {
+        updateAircraftModel(url);
+      }
     });
 
     let mouseX = 0, mouseY = 0;
