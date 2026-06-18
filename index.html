@@ -2,63 +2,64 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>GLWFS - DEBUG VIEW (Cartesian)</title>
+  <title>GLWFS</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
     body { margin: 0; padding: 0; overflow: hidden; background: #000; }
     #cesiumContainer { width: 100%; height: 100%; }
-    #debug-ui {
-      position: absolute; top: 10px; left: 10px;
-      background: rgba(0,0,0,0.7); color: #0f0;
-      padding: 15px; font-family: monospace;
-      pointer-events: none; z-index: 1000;
-    }
+    #brand-logo { position: absolute; top: 20px; left: 20px; color: #fff; background: rgba(0,0,0,0.6); padding: 10px 20px; font-family: sans-serif; font-weight: bold; z-index: 1000; border-radius: 4px; }
+    #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; z-index: 1000; }
+    #horizon-indicator { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 120px; height: 120px; background: #1a202c; border: 3px solid #718096; border-radius: 50%; overflow: hidden; z-index: 1002; }
+    #horizon-disc { width: 120px; height: 120px; background: linear-gradient(to bottom, #2b6cb0 50%, #744210 50%); transition: transform 0.05s linear; }
   </style>
 </head>
 <body>
   <div id="cesiumContainer"></div>
-  <div id="debug-ui">
-    <div>PLANE (Cartesian): <span id="plane-pos">Loading...</span></div>
-    <div>CAMERA (Cartesian): <span id="cam-pos">Loading...</span></div>
-  </div>
+  <div id="brand-logo">GLWFS</div>
+  <div id="crosshair"></div>
+  <div id="horizon-indicator"><div id="horizon-disc"></div></div>
 
   <script>
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1YWMyNTk2MC0yNDhhLTQyMTQtYmM3My1jYzBlMDJlN2FjN2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTc3NjEyNH0.-Xv456V3XvbRuZNtd-5-LdWzeTZctKKFcsE6v_b6TXg';
+    const viewer = new Cesium.Viewer('cesiumContainer', { baseLayerPicker: false, animation: false, timeline: false });
     
-    // Initializing with 'false' to keep it clean and minimal
-    const viewer = new Cesium.Viewer('cesiumContainer', {
-      timeline: false,
-      animation: false,
-      navigationInstructionsInitiallyVisible: false,
-      navigationHelpButton: false,
-      geocoder: false,
-      sceneModePicker: false,
-      baseLayerPicker: false,
-      fullscreenButton: false,
-      vrButton: false
-    });
-    
-    const planePos = new Cesium.Cartesian3(1335340.0, -4654600.0, 4138000.0);
-    
-    const airplane = viewer.entities.add({
-      position: planePos,
-      box: {
-        dimensions: new Cesium.Cartesian3(20.0, 20.0, 20.0),
-        material: Cesium.Color.RED
-      }
+    Cesium.createOsmBuildingsAsync().then((tileset) => { 
+      tileset.maximumScreenSpaceError = 32; 
+      viewer.scene.primitives.add(tileset); 
     });
 
-    const planeUI = document.getElementById('plane-pos');
-    const camUI = document.getElementById('cam-pos');
+    let lon = -74.0120, lat = 40.7050, alt = 300.0, heading = 0, pitch = 0, roll = 0;
+    const speed = 0.0002;
+
+    const airplane = viewer.entities.add({
+      position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
+      box: { dimensions: new Cesium.Cartesian3(10, 10, 10), material: Cesium.Color.RED }
+    });
+
+    let mouseX = 0, mouseY = 0;
+    window.addEventListener('mousemove', (e) => {
+      mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+      mouseY = (e.clientY / window.innerHeight) * 2 - 1;
+    });
 
     viewer.clock.onTick.addEventListener(() => {
-      // Keep camera locked on the moving entity
-      viewer.camera.lookAt(planePos, new Cesium.HeadingPitchRange(0, -0.5, 500));
+      // Controls: Pulling down (positive mouseY) now increases pitch/altitude
+      pitch = (mouseY * 45); 
+      roll = (mouseX * 45);
+      heading += (mouseX * 2.0);
       
-      const c = viewer.camera.position;
-      planeUI.innerText = `X: ${planePos.x.toFixed(0)}, Y: ${planePos.y.toFixed(0)}, Z: ${planePos.z.toFixed(0)}`;
-      camUI.innerText = `X: ${c.x.toFixed(0)}, Y: ${c.y.toFixed(0)}, Z: ${c.z.toFixed(0)}`;
+      const pitchRad = Cesium.Math.toRadians(pitch);
+      
+      // Update position based on heading and pitch
+      lon += Math.sin(Cesium.Math.toRadians(heading)) * speed * Math.cos(pitchRad);
+      lat += Math.cos(Cesium.Math.toRadians(heading)) * speed * Math.cos(pitchRad);
+      alt -= (pitch * 0.05); // Climbing logic
+
+      // Update UI
+      document.getElementById('horizon-disc').style.transform = `rotate(${-roll}deg) translateY(${pitch * 1.5}px)`;
+      
+      viewer.camera.lookAt(airplane.position.getValue(viewer.clock.currentTime), new Cesium.HeadingPitchRange(Cesium.Math.toRadians(heading), Cesium.Math.toRadians(-15), 500));
     });
   </script>
 </body>
