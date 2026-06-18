@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>1glwfs</title>
+  <title>glwfs</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -14,19 +14,20 @@
     #brand-logo { color: #fff; background: rgba(0,0,0,0.8); padding: 10px 20px; font-weight: bold; border-radius: 4px; border: 1px solid #3182ce; cursor: pointer; user-select: none; }
     
     /* Dropdown UI Configuration */
-    #dropdown-content { display: none; position: absolute; top: 100%; left: 0; background: rgba(0,0,0,0.9); margin-top: 5px; border-radius: 4px; border: 1px solid #4a5568; width: 220px; overflow: hidden; }
+    #dropdown-content { display: none; position: absolute; top: 100%; left: 0; background: rgba(0,0,0,0.9); margin-top: 5px; border-radius: 4px; border: 1px solid #4a5568; width: 260px; overflow: hidden; }
     .dropdown-item { color: #fff; padding: 12px 15px; font-size: 14px; text-decoration: none; display: block; cursor: pointer; transition: background 0.2s; }
     .dropdown-item:hover { background: #3182ce; }
     
     /* Integrated Flight Control Panel Layout */
-    #controls-panel { display: none; color: #fff; background: rgba(0, 0, 0, 0.85); padding: 15px; border-radius: 4px; border: 1px solid #718096; margin-top: 5px; width: 220px; font-size: 13px; line-height: 1.5; font-family: sans-serif; }
-    #controls-panel h4 { margin: 0 0 8px 0; color: #3182ce; font-size: 14px; }
+    #controls-panel { display: none; color: #fff; background: rgba(0, 0, 0, 0.85); padding: 15px; border-radius: 4px; border: 1px solid #718096; margin-top: 5px; width: 260px; font-size: 13px; line-height: 1.5; font-family: sans-serif; max-height: 80vh; overflow-y: auto; }
+    #controls-panel h4 { margin: 0 0 8px 0; color: #3182ce; font-size: 14px; border-bottom: 1px solid #4a5568; padding-bottom: 4px; }
     
     /* Smoothing Slider Configuration Styling */
-    .slider-container { margin-top: 12px; padding-top: 10px; border-top: 1px solid #4a5568; }
+    .slider-container { margin-top: 10px; padding-top: 8px; }
     .slider-container label { display: block; font-weight: bold; margin-bottom: 4px; color: #cbd5e0; }
-    .slider-ui { width: 100%; cursor: pointer; accent-color: #3182ce; }
-    .slider-val { float: right; color: #3182ce; font-family: monospace; }
+    .slider-row { display: flex; align-items: center; gap: 8px; }
+    .slider-ui { flex-grow: 1; cursor: pointer; accent-color: #3182ce; }
+    .input-ui { width: 50px; background: #1a202c; border: 1px solid #4a5568; color: #fff; padding: 2px 4px; font-family: monospace; border-radius: 4px; text-align: center; }
 
     /* File Import Button UI styling */
     .file-input-wrapper { margin-top: 12px; padding-top: 10px; border-top: 1px solid #4a5568; }
@@ -55,7 +56,7 @@
   <div id="brand-menu">
     <div id="brand-logo" onclick="toggleDropdown()">GLWFS ▾</div>
     <div id="dropdown-content">
-      <div class="dropdown-item" onclick="toggleControlsPanel()">Flight Controls</div>
+      <div class="dropdown-item" onclick="toggleControlsPanel()">Flight Controls & Mesh</div>
     </div>
     <div id="controls-panel">
       <h4>Navigation & Control</h4>
@@ -63,14 +64,51 @@
       • <b>Scroll Wheel</b>: Camera zoom distance<br>
       • <b>P Key</b>: Pause simulator physics<br>
       
-      <div class="slider-container">
-        <label for="smoothSlider">Rotation Smoothing <span id="smooth-lbl" class="slider-val">0.50</span></label>
-        <input type="range" id="smoothSlider" class="slider-ui" min="0.5" max="1.0" step="0.05" value="0.50" oninput="updateSmoothingFactor(this.value)">
+      <div class="slider-container" style="border-top: 1px solid #4a5568; padding-top: 8px;">
+        <label>Rotation Smoothing</label>
+        <div class="slider-row">
+          <input type="range" id="smoothSlider" class="slider-ui" min="0.5" max="1.0" step="0.05" value="0.50" oninput="syncControl('smooth', this.value)">
+          <input type="text" id="smoothInput" class="input-ui" value="0.50" onchange="syncControl('smooth', this.value)">
+        </div>
       </div>
 
       <div class="file-input-wrapper">
         <label for="glb-loader" class="file-label">Load Plane GLB</label>
         <input type="file" id="glb-loader" accept=".glb" onchange="handleGLBLoad(event)">
+      </div>
+
+      <h4>Model Axis Offsets (Deg)</h4>
+      <div class="slider-container">
+        <label>Heading Offset</label>
+        <div class="slider-row">
+          <input type="range" id="offsetHSlider" class="slider-ui" min="0" max="360" value="0" oninput="syncControl('offsetH', this.value)">
+          <input type="text" id="offsetHInput" class="input-ui" value="0" onchange="syncControl('offsetH', this.value)">
+        </div>
+      </div>
+
+      <div class="slider-container">
+        <label>Pitch Offset</label>
+        <div class="slider-row">
+          <input type="range" id="offsetPSlider" class="slider-ui" min="0" max="360" value="0" oninput="syncControl('offsetP', this.value)">
+          <input type="text" id="offsetPInput" class="input-ui" value="0" onchange="syncControl('offsetP', this.value)">
+        </div>
+      </div>
+
+      <div class="slider-container">
+        <label>Roll Offset</label>
+        <div class="slider-row">
+          <input type="range" id="offsetRSlider" class="slider-ui" min="0" max="360" value="0" oninput="syncControl('offsetR', this.value)">
+          <input type="text" id="offsetRInput" class="input-ui" value="0" onchange="syncControl('offsetR', this.value)">
+        </div>
+      </div>
+
+      <h4>Model Visual Scale</h4>
+      <div class="slider-container">
+        <label>Size Multiplier</label>
+        <div class="slider-row">
+          <input type="range" id="scaleSlider" class="slider-ui" min="1" max="100" value="1" oninput="syncControl('scale', this.value)">
+          <input type="text" id="scaleInput" class="input-ui" value="1" onchange="syncControl('scale', this.value)">
+        </div>
       </div>
     </div>
   </div>
@@ -86,11 +124,13 @@
   <script>
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXvyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Lyapi5jZXNpdW0uY29tIiwiYXVkIjoibGF3cmVuY2UyMTMxMl9kZWZhdWx0IiwiaWF0IjoxNzgxNzg0NDE5fQ.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
     
+    // Explicitly loading a default imagery provider fixes base map loading drops natively
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, 
       animation: false, 
       timeline: false,
-      geocoder: true
+      geocoder: true,
+      baseLayer: Cesium.ImageryLayer.fromProviderAsync(Cesium.ArcGisMapServerImageryProvider.fromUrl('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'))
     });
     
     viewer.scene.globe.depthTestAgainstTerrain = true;
@@ -108,33 +148,39 @@
     let targetPitch = 0, targetRoll = 0; 
     let smoothingFactor = 0.50;      
     
+    // Calibration parameters accessible by the live transformation matrix variables
+    let modelOffsetH = 0;
+    let modelOffsetP = 0;
+    let modelOffsetR = 0;
+    let modelScale = 1.0;
+    
     let camHeading = 0;
     
     const speed = 0.000025; 
     let camDistance = 40; 
     let isPaused = false;
+    let loadedBlobURL = null;
 
     const entityConfig = {
       position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
       orientation: new Cesium.CallbackProperty(() => {
         const center = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+        // Direct integration of offset configurations on top of real-time flight vectors
         const hpr = new Cesium.HeadingPitchRoll(
-          Cesium.Math.toRadians(heading), 
-          Cesium.Math.toRadians(roll), 
-          Cesium.Math.toRadians(pitch)
+          Cesium.Math.toRadians(heading + modelOffsetH), 
+          Cesium.Math.toRadians(roll + modelOffsetR), 
+          Cesium.Math.toRadians(pitch + modelOffsetP)
         );
         return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
       }, false)
     };
 
-    // Fallback default red box entity
     let airplane = viewer.entities.add({
       position: entityConfig.position,
       orientation: entityConfig.orientation,
       box: { dimensions: new Cesium.Cartesian3(1.5, 8.0, 1.5), material: Cesium.Color.RED }
     });
 
-    // Reader logic to parse file selections into object data strings locally
     function handleGLBLoad(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -143,23 +189,50 @@
       reader.onload = function(e) {
         const arrayBuffer = e.target.result;
         const blob = new Blob([arrayBuffer], { type: "model/gltf-binary" });
-        const blobURL = URL.createObjectURL(blob);
+        if (loadedBlobURL) URL.revokeObjectURL(loadedBlobURL);
+        loadedBlobURL = URL.createObjectURL(blob);
 
-        // Remove old airplane graphic layers safely
         viewer.entities.remove(airplane);
 
-        // Regenerate aircraft entity utilizing the local blob structural link
         airplane = viewer.entities.add({
           position: entityConfig.position,
           orientation: entityConfig.orientation,
           model: {
-            uri: blobURL,
-            minimumPixelSize: 64, // Keeps model scalable instead of vanishing at long range distances
-            maximumScale: 20000
+            uri: loadedBlobURL,
+            minimumPixelSize: 64,
+            scale: new Cesium.CallbackProperty(() => modelScale, false)
           }
         });
       };
       reader.readAsArrayBuffer(file);
+    }
+
+    // Bidirectional layout pipeline binding value data inputs directly to target sliders
+    function syncControl(type, val) {
+      const numVal = parseFloat(val);
+      if (isNaN(numVal)) return;
+
+      if (type === 'smooth') {
+        smoothingFactor = Math.max(0.5, Math.min(1.0, numVal));
+        document.getElementById('smoothSlider').value = smoothingFactor;
+        document.getElementById('smoothInput').value = smoothingFactor.toFixed(2);
+      } else if (type === 'offsetH') {
+        modelOffsetH = numVal;
+        document.getElementById('offsetHSlider').value = modelOffsetH;
+        document.getElementById('offsetHInput').value = modelOffsetH;
+      } else if (type === 'offsetP') {
+        modelOffsetP = numVal;
+        document.getElementById('offsetPSlider').value = modelOffsetP;
+        document.getElementById('offsetPInput').value = modelOffsetP;
+      } else if (type === 'offsetR') {
+        modelOffsetR = numVal;
+        document.getElementById('offsetRSlider').value = modelOffsetR;
+        document.getElementById('offsetRInput').value = modelOffsetR;
+      } else if (type === 'scale') {
+        modelScale = Math.max(1, numVal);
+        document.getElementById('scaleSlider').value = modelScale;
+        document.getElementById('scaleInput').value = modelScale;
+      }
     }
 
     function toggleDropdown() {
@@ -171,11 +244,6 @@
       const panel = document.getElementById('controls-panel');
       panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
       document.getElementById('dropdown-content').style.display = 'none';
-    }
-
-    function updateSmoothingFactor(val) {
-      smoothingFactor = parseFloat(val);
-      document.getElementById('smooth-lbl').innerText = smoothingFactor.toFixed(2);
     }
 
     window.addEventListener('click', function(e) {
