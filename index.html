@@ -11,7 +11,7 @@
     #brand-logo { position: absolute; top: 20px; left: 20px; color: #fff; background: rgba(0,0,0,0.6); padding: 10px 20px; font-family: sans-serif; font-weight: bold; z-index: 1000; border-radius: 4px; }
     #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; z-index: 1000; }
     
-    /* Control Panel UI - Restored */
+    /* Control Panel UI */
     #upload-container { position: absolute; top: 20px; right: 20px; z-index: 1000; display: flex; gap: 8px; }
     .btn-upload { background: #3182ce; color: #fff; border: none; padding: 10px 15px; font-family: sans-serif; font-weight: bold; font-size: 13px; border-radius: 4px; cursor: pointer; transition: background 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
     .btn-upload:hover { background: #2b6cb0; }
@@ -62,7 +62,6 @@
     
     viewer.scene.globe.depthTestAgainstTerrain = true;
 
-    // Fast rendering structural gray/brown fallback geometry restored
     Cesium.createOsmBuildingsAsync().then((tileset) => { 
       viewer.scene.primitives.add(tileset); 
     });
@@ -89,7 +88,6 @@
 
     function resetToDefaultCube() {
       if (airplane) viewer.entities.remove(airplane);
-      // Reshaped long and slim like a pencil
       airplane = viewer.entities.add({
         position: entityConfig.position,
         orientation: entityConfig.orientation,
@@ -97,6 +95,7 @@
       });
     }
 
+    // Default back to pencil block first
     resetToDefaultCube();
 
     function updateAircraftModel(url) {
@@ -112,14 +111,27 @@
       });
     }
 
-    // Geocoder Search Teleportation Engine Fixed
+    // Auto-fetches from GitHub Pages repository folder on launch
+    const repoModelPath = './free_cessna_172sp.glb';
+    
+    // Test if the file is present in your GitHub Pages deployment path
+    fetch(repoModelPath, { method: 'HEAD' })
+      .then(res => {
+        if (res.ok) {
+          updateAircraftModel(repoModelPath);
+        } else {
+          console.log("Local asset not built yet. Running on red placeholder layout.");
+        }
+      })
+      .catch(() => console.log("Running engine via local workspace."));
+
     viewer.geocoder.viewModel.complete.addEventListener(() => {
       const camCartographic = viewer.scene.camera.positionCartographic;
       lon = Cesium.Math.toDegrees(camCartographic.longitude);
       lat = Cesium.Math.toDegrees(camCartographic.latitude);
       
-      alt = 200.0; // Spawns precisely 200m above ground vector
-      heading = 0; // Total angular parameter reset
+      alt = 200.0; 
+      heading = 0; 
       pitch = 0;
       roll = 0;
     });
