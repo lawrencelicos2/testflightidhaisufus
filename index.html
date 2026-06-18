@@ -11,6 +11,12 @@
     #brand-logo { position: absolute; top: 20px; left: 20px; color: #fff; background: rgba(0,0,0,0.6); padding: 10px 20px; font-family: sans-serif; font-weight: bold; z-index: 1000; border-radius: 4px; }
     #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; z-index: 1000; }
     
+    /* Control Panel UI */
+    #upload-container { position: absolute; top: 20px; right: 20px; z-index: 1000; }
+    .btn-upload { background: #3182ce; color: #fff; border: none; padding: 10px 15px; font-family: sans-serif; font-weight: bold; font-size: 13px; border-radius: 4px; cursor: pointer; transition: background 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+    .btn-upload:hover { background: #2b6cb0; }
+    #file-input { display: none; }
+
     /* Instrument HUD Layout */
     #horizon-indicator { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 120px; height: 120px; background: #1a202c; border: 3px solid #718096; border-radius: 50%; overflow: hidden; z-index: 1002; }
     #horizon-disc { width: 120px; height: 120px; background: linear-gradient(to bottom, #2b6cb0 50%, #744210 50%); transition: transform 0.05s linear; position: relative; }
@@ -28,6 +34,11 @@
   <div id="crosshair"></div>
   <div id="pause-overlay">PAUSED</div>
   
+  <div id="upload-container">
+    <button class="btn-upload" onclick="document.getElementById('file-input').click()">Import 3D Model (.glb / .gltf)</button>
+    <input type="file" id="file-input" accept=".glb,.gltf">
+  </div>
+  
   <div id="horizon-indicator">
     <div id="horizon-disc">
       <div id="horizon-degrees">0°</div>
@@ -37,7 +48,7 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">0</span>kn</div>
 
   <script>
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1YWMyNTk2MC0yNDhhLTQyMTQtYmM3My1jYzBlMDJlN2FjN2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTc3NjEyNH0.-Xv456V3XvbRuZNtd-5-LdWzeTZctKKFcsE6v_b6TXg';
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1YWMyNTk2MC0yNDhhLTQyMTQtYmM3My1jYzBlMDJlN2FjN2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MT76MTkyNH0.-Xv456V3XvbRuZNtd-5-LdWzeTZctKKFcsE6v_b6TXg';
     
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, 
@@ -54,12 +65,12 @@
 
     let lon = -74.0120, lat = 40.7050, alt = 600.0, heading = 0, pitch = 0, roll = 0;
     
-    // Balanced speed for the smaller 0.6m chair coordinate space
     const speed = 0.000025; 
     let camDistance = 40; 
     let isPaused = false;
 
-    const airplane = viewer.entities.add({
+    // Base properties object for the airplane configuration
+    const entityConfig = {
       position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
       orientation: new Cesium.CallbackProperty(() => {
         const center = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
@@ -70,8 +81,37 @@
         );
         return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
       }, false),
-      // Cube scaled down to 0.6m to mirror a cockpit seat element
       box: { dimensions: new Cesium.Cartesian3(0.6, 0.6, 0.6), material: Cesium.Color.RED }
+    };
+
+    let airplane = viewer.entities.add(entityConfig);
+
+    // Runtime Local File Reader handler for runtime .gltf/.glb ingestion
+    document.getElementById('file-input').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const arrayBuffer = event.target.result;
+        const blob = new Blob([arrayBuffer], { type: "application/octet-stream" });
+        const blobUrl = URL.createObjectURL(blob);
+
+        // Remove old box entity representation
+        viewer.entities.remove(airplane);
+
+        // Re-inject aircraft state tracking pointing directly to your uploaded model data
+        airplane = viewer.entities.add({
+          position: entityConfig.position,
+          orientation: entityConfig.orientation,
+          model: {
+            uri: blobUrl,
+            minimumPixelSize: 32,
+            scale: 1.0 // Adjust scalar variables directly inside here if model geometry changes scale
+          }
+        });
+      };
+      reader.readAsArrayBuffer(file);
     });
 
     let mouseX = 0, mouseY = 0;
