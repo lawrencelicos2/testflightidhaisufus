@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs1</title>
+  <title>glwfs</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -29,19 +29,20 @@
       viewer.scene.primitives.add(tileset); 
     });
 
-    let position = Cesium.Cartesian3.fromDegrees(-74.0120, 40.7050, 300.0);
-    let heading = 0, pitch = 0, roll = 0;
-    const speed = 10.0; 
+    let lon = -74.0120, lat = 40.7050, alt = 300.0, heading = 0, pitch = 0, roll = 0;
+    // Speed adjusted for geographic degree step increments
+    const speed = 0.0001; 
 
     const airplane = viewer.entities.add({
-      position: new Cesium.CallbackProperty(() => position, false),
+      position: new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false),
       orientation: new Cesium.CallbackProperty(() => {
+        const center = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
         const hpr = new Cesium.HeadingPitchRoll(
           Cesium.Math.toRadians(heading), 
           Cesium.Math.toRadians(roll), 
           Cesium.Math.toRadians(pitch)
         );
-        return Cesium.Transforms.headingPitchRollQuaternion(position, hpr);
+        return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
       }, false),
       box: { dimensions: new Cesium.Cartesian3(10, 10, 10), material: Cesium.Color.RED }
     });
@@ -53,28 +54,23 @@
     });
 
     viewer.clock.onTick.addEventListener(() => {
-      // Restored the first control structure mapping mouse directly to degrees
+      // First control mapping structure restored
       pitch = (-mouseY * 45); 
       roll = (-mouseX * 45);  
       heading += (mouseX * 2.0);
       
-      const rHeading = Cesium.Math.toRadians(heading);
-      const rPitch = Cesium.Math.toRadians(pitch);
-      const rRoll = Cesium.Math.toRadians(roll);
-
-      const hpr = new Cesium.HeadingPitchRoll(rHeading, rPitch, rRoll);
-      const orientationMatrix = Cesium.Transforms.headingPitchRollToFixedFrame(position, hpr);
+      const pitchRad = Cesium.Math.toRadians(pitch);
+      const headingRad = Cesium.Math.toRadians(heading);
       
-      const localForward = new Cesium.Cartesian3(0, 1, 0); 
-      const worldForward = Cesium.Matrix4.multiplyByPointAsVector(orientationMatrix, localForward, new Cesium.Cartesian3());
-      Cesium.Cartesian3.normalize(worldForward, worldForward);
-
-      const movement = Cesium.Cartesian3.multiplyByScalar(worldForward, speed, new Cesium.Cartesian3());
-      Cesium.Cartesian3.add(position, movement, position);
+      // True 3D forward translation using trigonometric sin/cos matrix calculations
+      lon += Math.sin(headingRad) * speed * Math.cos(pitchRad);
+      lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
+      alt += Math.sin(pitchRad) * (speed * 100000); // Direct vertical forward vector translation
 
       document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
       
-      viewer.camera.lookAt(position, new Cesium.HeadingPitchRange(rHeading, Cesium.Math.toRadians(-15), 500));
+      const currentPos = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+      viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(headingRad, Cesium.Math.toRadians(-15), 500));
     });
   </script>
 </body>
