@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>GLWFS</title>
+  <title>1 to 1glwfs</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -38,8 +38,8 @@
         const center = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
         const hpr = new Cesium.HeadingPitchRoll(
           Cesium.Math.toRadians(heading), 
-          Cesium.Math.toRadians(pitch), 
-          Cesium.Math.toRadians(roll)
+          Cesium.Math.toRadians(roll), 
+          Cesium.Math.toRadians(pitch)
         );
         return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
       }, false),
@@ -53,19 +53,16 @@
     });
 
     viewer.clock.onTick.addEventListener(() => {
-      // Fixed Flight Physics Direction mapping
-      pitch = (-mouseY * 45); // Mouse down = nose up, Mouse up = nose down
-      roll = (-mouseX * 45);  // Mouse left = bank left, Mouse right = bank right
+      pitch = (-mouseY * 45); 
+      roll = (-mouseX * 45);  
       heading += (mouseX * 2.0);
       
       const pitchRad = Cesium.Math.toRadians(pitch);
       
-      // Position tracking math updated to match new pitch axis direction
       lon += Math.sin(Cesium.Math.toRadians(heading)) * speed * Math.cos(pitchRad);
       lat += Math.cos(Cesium.Math.toRadians(heading)) * speed * Math.cos(pitchRad);
-      alt += (pitch * 0.05); // Positive pitch now properly climbs altitude
+      alt += (pitch * 0.05); 
 
-      // Update HUD interface elements to stay synced
       document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
       
       viewer.camera.lookAt(airplane.position.getValue(viewer.clock.currentTime), new Cesium.HeadingPitchRange(Cesium.Math.toRadians(heading), Cesium.Math.toRadians(-15), 500));
