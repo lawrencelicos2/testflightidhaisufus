@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs</title>
+  <title>glwfs1</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -30,21 +30,16 @@
     });
 
     let position = Cesium.Cartesian3.fromDegrees(-74.0120, 40.7050, 300.0);
-    
-    // Degrees tracking
-    let headingDeg = 0;
-    let pitchDeg = 0;
-    let rollDeg = 0;
-    
+    let heading = 0, pitch = 0, roll = 0;
     const speed = 10.0; 
 
     const airplane = viewer.entities.add({
       position: new Cesium.CallbackProperty(() => position, false),
       orientation: new Cesium.CallbackProperty(() => {
         const hpr = new Cesium.HeadingPitchRoll(
-          Cesium.Math.toRadians(headingDeg), 
-          Cesium.Math.toRadians(pitchDeg), 
-          Cesium.Math.toRadians(rollDeg)
+          Cesium.Math.toRadians(heading), 
+          Cesium.Math.toRadians(roll), 
+          Cesium.Math.toRadians(pitch)
         );
         return Cesium.Transforms.headingPitchRollQuaternion(position, hpr);
       }, false),
@@ -58,17 +53,15 @@
     });
 
     viewer.clock.onTick.addEventListener(() => {
-      // Uncapped raw accumulation
-      pitchDeg += (mouseY * 1.5); 
-      rollDeg += (mouseX * 2.0);  
-      headingDeg += (mouseX * 1.0);
+      // Restored the first control structure mapping mouse directly to degrees
+      pitch = (-mouseY * 45); 
+      roll = (-mouseX * 45);  
+      heading += (mouseX * 2.0);
+      
+      const rHeading = Cesium.Math.toRadians(heading);
+      const rPitch = Cesium.Math.toRadians(pitch);
+      const rRoll = Cesium.Math.toRadians(roll);
 
-      // Convert current positions directly to radians for the directional vectors
-      const rHeading = Cesium.Math.toRadians(headingDeg);
-      const rPitch = Cesium.Math.toRadians(pitchDeg);
-      const rRoll = Cesium.Math.toRadians(rollDeg);
-
-      // Direct 3D Forward vector movement calculation
       const hpr = new Cesium.HeadingPitchRoll(rHeading, rPitch, rRoll);
       const orientationMatrix = Cesium.Transforms.headingPitchRollToFixedFrame(position, hpr);
       
@@ -79,10 +72,8 @@
       const movement = Cesium.Cartesian3.multiplyByScalar(worldForward, speed, new Cesium.Cartesian3());
       Cesium.Cartesian3.add(position, movement, position);
 
-      // HUD tracking sync
-      document.getElementById('horizon-disc').style.transform = `rotate(${rollDeg}deg) translateY(${pitchDeg * 1.5}px)`;
+      document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
       
-      // Smooth camera implementation relative to global frame tracking
       viewer.camera.lookAt(position, new Cesium.HeadingPitchRange(rHeading, Cesium.Math.toRadians(-15), 500));
     });
   </script>
