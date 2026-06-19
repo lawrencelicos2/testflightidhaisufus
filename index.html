@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs5</title>
+  <title>glwfs6</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -216,7 +216,7 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">161</span>kn</div>
 
   <script>
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMWZiMzFiMC1kMDVmLTQ3YzAtODFkMC0xMTcxYzgyMDc0Y2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTg0OTQ3NH0.4ZssjESwVVd6uuGP_h-VCU_BHQx1x7ap_hs9omnFUIQ';
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMWZiMzFiMC1kMDVmLTQ3YzAtODFkMC0xMTcxYzgyMDc0Y2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXvyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTg0OTQ3NH0.4ZssjESwVVd6uuGP_h-VCU_BHQx1x7ap_hs9omnFUIQ';
     
     let currentEngineMode = 'menu';
     
@@ -232,12 +232,12 @@
     viewer.scene.globe.loadingDescendantLimit = 60;
     viewer.scene.globe.preloadAncestors = true;
 
-    // Timeout protective delay loop to stop early load engine race bugs dropping buildings
+    // Adjusted step properties to keep building positions locked tightly to maps during rotation
     setTimeout(() => {
       Cesium.createOsmBuildingsAsync().then((tileset) => { 
-        tileset.maximumScreenSpaceError = 2; 
+        tileset.maximumScreenSpaceError = 1.5; 
         tileset.maximumMemoryUsage = 2048;   
-        tileset.skipLevelOfDetail = true;     
+        tileset.skipLevelOfDetail = false;     
         tileset.cullRequestsWhileMoving = false; 
         tileset.preloadFlightDestinations = true;
         viewer.scene.primitives.add(tileset); 
@@ -247,12 +247,12 @@
     let lon = -74.0445, lat = 40.6892, alt = 200.0, heading = 0;
     let pitch = 0, roll = 0, targetPitch = 0, targetRoll = 0, smoothingFactor = 0.50;      
     
-    // Linearly divided throttle matrix matching HUD readout to engine physics speed stepping
+    // Balanced linear stepping setup for Cessna 172 flight limits (50kn Min to 161kn Max Cruise)
     const throttleLabels = {
-      "1": 16, "2": 32, "3": 48, "4": 64, "5": 80, "6": 96, "7": 112, "8": 128, "9": 161
+      "1": 50, "2": 64, "3": 78, "4": 92, "5": 106, "6": 120, "7": 134, "8": 148, "9": 161
     };
     const flightSpeedMultipliers = {
-      "1": 0.0000025, "2": 0.000005, "3": 0.0000075, "4": 0.000010, "5": 0.0000125, "6": 0.000015, "7": 0.0000175, "8": 0.000020, "9": 0.000025
+      "1": 0.0000077, "2": 0.0000099, "3": 0.0000121, "4": 0.0000143, "5": 0.0000165, "6": 0.0000186, "7": 0.0000208, "8": 0.0000230, "9": 0.0000250
     };
     let activeThrottleKey = "9"; 
 
@@ -307,7 +307,7 @@
       document.getElementById('home-screen').style.display = 'none';
       document.getElementById('cesiumContainer').style.display = 'block';
       
-      revealHiddenMenu(); // Ensure window defaults back to open state on initial engine boot
+      revealHiddenMenu(); 
       
       viewer.scene.screenSpaceCameraController.enableInputs = false; 
 
@@ -345,7 +345,7 @@
     }
 
     function hideMenuSystem(event) {
-      if(event) event.stopPropagation(); // Stop parent dropdown layer trigger clicks
+      if(event) event.stopPropagation(); 
       document.getElementById('brand-menu').style.display = 'none';
       document.getElementById('menu-reveal-btn').style.display = 'block';
     }
@@ -686,7 +686,6 @@
         const pitchRad = Cesium.Math.toRadians(pitch);
         const headingRad = Cesium.Math.toRadians(heading);
         
-        // Use the dynamically parsed step-down speed modifier array based on active throttle key selection
         const speed = flightSpeedMultipliers[activeThrottleKey] || 0.000025;
         
         lon += Math.sin(headingRad) * speed * Math.cos(pitchRad);
