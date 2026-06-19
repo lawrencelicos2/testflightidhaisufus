@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs1</title>
+  <title>glwfs</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -209,7 +209,6 @@
     
     viewer.scene.globe.depthTestAgainstTerrain = true;
     
-    // Correct structural call to inject buildings layout
     const buildingTileset = Cesium.createOsmBuildings();
     viewer.scene.primitives.add(buildingTileset);
 
@@ -635,20 +634,21 @@
           camHeading += (heading - camHeading) * camSpeedMultiplier;
           viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
         } else {
-          // Fixed matrix transformations preventing lookAt leaks to deep space bounds
           const matchedView = profileData.savedCameraViews[currentViewIndex];
-          const localTransform = Cesium.Transforms.eastNorthUpToFixedFrame(currentPos);
           
-          // Re-derive translation values explicitly inside fixed geographical context frame maps
-          const relativeCamVector = new Cesium.Cartesian3(matchedView.localX, matchedView.localY, matchedView.localZ);
-          const worldViewPos = Cesium.Matrix4.multiplyByPoint(localTransform, relativeCamVector, new Cesium.Cartesian3());
+          // Use Cesium orientation states to properly derive the aircraft local matrix transformations
+          const currentHPR = new Cesium.HeadingPitchRoll(Cesium.Math.toRadians(heading), Cesium.Math.toRadians(roll), Cesium.Math.toRadians(pitch));
+          const localToFixedMatrix = Cesium.Transforms.headingPitchRollToFixedFrame(currentPos, currentHPR);
           
-          viewer.camera.position = worldViewPos;
+          const offsetLocal = new Cesium.Cartesian3(matchedView.localX, matchedView.localY, matchedView.localZ);
+          const computedWorldPosition = Cesium.Matrix4.multiplyByPoint(localToFixedMatrix, offsetLocal, new Cesium.Cartesian3());
+          
+          viewer.camera.position = computedWorldPosition;
           viewer.camera.setView({
             orientation: {
               heading: matchedView.heading + Cesium.Math.toRadians(heading),
-              pitch: matchedView.pitch,
-              roll: 0.0
+              pitch: matchedView.pitch + Cesium.Math.toRadians(pitch),
+              roll: Cesium.Math.toRadians(roll)
             }
           });
         }
