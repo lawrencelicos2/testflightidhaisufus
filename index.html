@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs1</title>
+  <title>glwfs</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -210,11 +210,8 @@
     
     viewer.scene.globe.depthTestAgainstTerrain = false;
     
-    // SUNLIGHT ENVIRONMENT PIPELINE
-    viewer.shadows = true;
-    viewer.terrainShadows = Cesium.ShadowMode.ENABLED;
-    viewer.shadowMap.size = 2048; 
-    viewer.shadowMap.softShadows = true;
+    // REMOVED: Shadow environment variables deactivated
+    viewer.shadows = false;
     
     Cesium.createOsmBuildingsAsync().then((tileset) => { 
       viewer.scene.primitives.add(tileset); 
@@ -242,42 +239,31 @@
 
     const positionProperty = new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false);
     
-    // FIXED: Separated alignment calibration matrix from standard runtime simulation transformations 
     const orientationProperty = new Cesium.CallbackProperty(() => {
       const center = positionProperty.getValue(viewer.clock.currentTime);
       if (!center) return Cesium.Quaternion.IDENTITY;
       
-      let finalH = heading;
-      let finalP = pitch;
-      let finalR = roll;
+      let finalH = profileData.modelOffsetH;
+      let finalP = profileData.modelOffsetP;
+      let finalR = profileData.modelOffsetR;
 
-      if (currentEngineMode === 'editor') {
-        finalH = 0; finalP = 0; finalR = 0;
+      if (currentEngineMode === 'sim') {
+        finalH += heading;
+        finalP += pitch;
+        finalR += roll;
       }
 
-      // 1. Calculate aircraft frame rotation matrix across local landscape context
-      const flightRotation = new Cesium.HeadingPitchRoll(
+      const hpr = new Cesium.HeadingPitchRoll(
         Cesium.Math.toRadians(finalH), 
         Cesium.Math.toRadians(finalP), 
         Cesium.Math.toRadians(finalR)
       );
-      const flightQuaternion = Cesium.Transforms.headingPitchRollQuaternion(center, flightRotation);
-
-      // 2. Multiplicative injection of manual dashboard alignment values inside local space setup
-      const calibrationRotation = new Cesium.HeadingPitchRoll(
-        Cesium.Math.toRadians(profileData.modelOffsetH),
-        Cesium.Math.toRadians(profileData.modelOffsetP),
-        Cesium.Math.toRadians(profileData.modelOffsetR)
-      );
-      const calibrationQuaternion = Cesium.Quaternion.fromHeadingPitchRoll(calibrationRotation);
-
-      return Cesium.Quaternion.multiply(flightQuaternion, calibrationQuaternion, new Cesium.Quaternion());
+      return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
     }, false);
 
     let airplane = viewer.entities.add({
       position: positionProperty, orientation: orientationProperty,
-      box: { dimensions: new Cesium.Cartesian3(1.5, 8.0, 1.5), material: Cesium.Color.RED },
-      shadows: Cesium.ShadowMode.ENABLED
+      box: { dimensions: new Cesium.Cartesian3(1.5, 8.0, 1.5), material: Cesium.Color.RED }
     });
 
     function bootProgram(mode) {
@@ -417,8 +403,7 @@
       
       let modelConfig = {
         scale: new Cesium.CallbackProperty(() => profileData.modelScale, false),
-        runAnimations: false,
-        shadows: Cesium.ShadowMode.ENABLED
+        runAnimations: false
       };
 
       if (loadedBlobURL) {
@@ -437,7 +422,7 @@
       airplane = viewer.entities.add({
         position: positionProperty,
         orientation: orientationProperty,
-        ...(loadedBlobURL ? { model: modelConfig } : { box: { dimensions: new Cesium.Cartesian3(2, 8, 2), material: Cesium.Color.RED }, shadows: Cesium.ShadowMode.ENABLED })
+        ...(loadedBlobURL ? { model: modelConfig } : { box: { dimensions: new Cesium.Cartesian3(2, 8, 2), material: Cesium.Color.RED } })
       });
       
       if(loadedBlobURL) {
@@ -626,8 +611,8 @@
         }
 
         targetPitch = (-mouseY * 45); 
-        // FIXED: Balanced targeting coordinate system map variables
-        targetRoll = (-mouseX * 45);  
+        // RESTORED: Original mouse calculation mappings
+        targetRoll = (mouseX * 45);  
         
         let interpolationWeight = 1.0 - smoothingFactor;
         if (interpolationWeight < 0.01) interpolationWeight = 0.01;
@@ -635,7 +620,6 @@
         pitch += (targetPitch - pitch) * interpolationWeight;
         roll += (targetRoll - roll) * interpolationWeight;
         
-        // FIXED: Turns smoothly toward banking angle natively
         heading += (roll * 0.05);
         
         const pitchRad = Cesium.Math.toRadians(pitch);
@@ -651,11 +635,6 @@
           if (pitch < 0.0) pitch = 0.0;
         }
 
-        // HEIGHT ADAPTIVE SHADOWS: Recalculates vector view matrix mapping limits based on altitude
-        if (viewer.shadowMap) {
-          viewer.shadowMap.maximumDistance = Math.max(alt * 4.0, 500.0);
-        }
-
         if (airplane && airplane.model && loadedBlobURL) {
           propRotationAngle += 0.5; if (propRotationAngle > Math.PI * 2) propRotationAngle -= Math.PI * 2;
           
@@ -667,8 +646,8 @@
           }
         }
 
-        // FIXED: Synchronized dashboard disc widget mapping to match banking inputs exactly
-        document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
+        // RESTORED: Original UI layout matrix mapping
+        document.getElementById('horizon-disc').style.transform = `rotate(${-roll}deg) translateY(${pitch * 1.5}px)`;
         document.getElementById('horizon-degrees').innerText = `${Math.round(pitch)}°`;
         document.getElementById('alt-val').innerText = Math.round(alt);
         document.getElementById('spd-val').innerText = Math.round(speed * 1200000); 
