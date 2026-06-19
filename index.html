@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs</title>
+  <title>glwfs1</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -203,15 +203,14 @@
     
     let currentEngineMode = 'menu';
     
-    // REVERTED: Re-established standard, optimized, fast-loading map context
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, animation: false, timeline: false, geocoder: true,
       baseLayer: Cesium.ImageryLayer.fromProviderAsync(Cesium.ArcGisMapServerImageryProvider.fromUrl('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'))
     });
     
-    viewer.scene.globe.depthTestAgainstTerrain = true;
+    viewer.scene.globe.depthTestAgainstTerrain = false;
     
-    // 3D Osm Buildings infrastructure layer setup
+    // RESTORED: Standard 3D structural outline building vector tileset mapping
     Cesium.createOsmBuildingsAsync().then((tileset) => { 
       viewer.scene.primitives.add(tileset); 
     });
@@ -469,7 +468,6 @@
         try {
           const parsed = JSON.parse(e.target.result);
           
-          // FIXED: Safe mapping to prevent loading array verification errors
           profileData = {
             modelOffsetH: parsed.modelOffsetH || 0,
             modelOffsetP: parsed.modelOffsetP || 0,
@@ -623,7 +621,10 @@
           return;
         }
 
-        targetPitch = (-mouseY * 45); targetRoll = (-mouseX * 45);  
+        targetPitch = (-mouseY * 45); 
+        // FIXED: Roll input orientation flipped so dragging right rolls right
+        targetRoll = (mouseX * 45);  
+        
         let interpolationWeight = 1.0 - smoothingFactor;
         if (interpolationWeight < 0.01) interpolationWeight = 0.01;
 
@@ -638,9 +639,10 @@
         lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
         alt += Math.sin(pitchRad) * (speed * 100000); 
 
-        // OPTIMIZED INSTANT COLLISION: Clamps to flat structural ground data instantly
-        if (alt < 0.0) {
-          alt = 0.0;
+        // FIXED: Calculated dynamic collision boundaries incorporating the active scale parameters
+        let bottomSafetyOffset = Math.max(1.5, profileData.modelScale * 1.25);
+        if (alt < bottomSafetyOffset) {
+          alt = bottomSafetyOffset;
           if (pitch < 0.0) {
             pitch = 0.0;
           }
@@ -657,7 +659,7 @@
           }
         }
 
-        document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
+        document.getElementById('horizon-disc').style.transform = `rotate(${-roll}deg) translateY(${pitch * 1.5}px)`;
         document.getElementById('horizon-degrees').innerText = `${Math.round(pitch)}°`;
         document.getElementById('alt-val').innerText = Math.round(alt);
         document.getElementById('spd-val').innerText = Math.round(speed * 1200000); 
