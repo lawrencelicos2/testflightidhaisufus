@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs7</title>
+  <title>glwfs8</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -67,6 +67,12 @@
     #spd-indicator { display: none; position: absolute; bottom: 30px; left: calc(50% + 90px); width: 80px; height: 40px; background: rgba(15,23,42,0.8); border: 2px solid #475569; color: #0f0; font-family: monospace; text-align: center; font-size: 12px; border-radius: 4px; z-index: 1002; padding-top: 5px; }
     #pause-overlay { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ef4444; font-family: sans-serif; font-size: 32px; font-weight: bold; background: rgba(15,23,42,0.9); padding: 10px 30px; border-radius: 8px; border: 2px solid #ef4444; z-index: 2000; pointer-events: none; }
     #view-alert { display: none; position: absolute; bottom: 180px; left: 50%; transform: translateX(-50%); background: rgba(37,99,235,0.9); color: white; padding: 8px 20px; border-radius: 20px; font-weight: bold; font-size: 14px; z-index: 5000; pointer-events: none; }
+
+    /* Immersive Crash Interface Layout */
+    #crash-screen { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(13, 14, 18, 0.95); z-index: 99999; flex-direction: column; align-items: center; justify-content: center; font-family: sans-serif; }
+    #crash-box { text-align: center; border: 2px solid #dc2626; padding: 40px; border-radius: 8px; background: #111827; box-shadow: 0 0 30px rgba(220, 38, 38, 0.3); }
+    #crash-box h2 { color: #ef4444; font-size: 36px; margin: 0 0 10px 0; font-weight: 900; letter-spacing: 1px; }
+    #crash-box p { color: #9ca3af; margin-bottom: 25px; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -82,6 +88,14 @@
         <label for="profile-uploader" class="file-label" style="background:#4b5563;">Import Configuration Profile (.json)</label>
         <input type="file" id="profile-uploader" accept=".json" style="display:none;" onchange="loadConfigProfile(event)">
       </div>
+    </div>
+  </div>
+
+  <div id="crash-screen">
+    <div id="crash-box">
+      <h2>COLLISION DETECTED</h2>
+      <p>Your aircraft collided with architectural structures.</p>
+      <button class="btn-main" style="background:#dc2626;" onclick="resetFromCrash()">Respawn Aircraft</button>
     </div>
   </div>
 
@@ -219,6 +233,7 @@
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMWZiMzFiMC1kMDVmLTQ3YzAtODFkMC0xMTcxYzgyMDc0Y2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTg0OTQ3NH0.4ZssjESwVVd6uuGP_h-VCU_BHQx1x7ap_hs9omnFUIQ';
     
     let currentEngineMode = 'menu';
+    let isCrashed = false;
     
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, animation: false, timeline: false, geocoder: true,
@@ -227,25 +242,30 @@
     
     viewer.scene.globe.depthTestAgainstTerrain = false;
     viewer.shadows = false;
+    
+    // Explicit scene constraints to eliminate layout drift and lock mesh coordinates to ground assets
     viewer.scene.globe.maximumScreenSpaceError = 1;
+    viewer.scene.globe.loadingDescendantLimit = 120;
+    viewer.scene.globe.preloadAncestors = true;
 
-    // Direct initialization retry loop to prevent network drops from swallowing building streams
+    let buildingsTileset = null;
+
     function loadOSMBuildings() {
       Cesium.createOsmBuildingsAsync().then((tileset) => { 
+        // Synchronized coordinate tracking configuration
         tileset.maximumScreenSpaceError = 1.0; 
         tileset.maximumMemoryUsage = 2048;   
         tileset.skipLevelOfDetail = false;     
         tileset.cullRequestsWhileMoving = false; 
+        tileset.preloadFlightDestinations = true;
         
-        // Enforce solid architectural rendering rules and override default alpha components
         tileset.style = new Cesium.Cesium3DTileStyle({
           color: "color('white', 1.0)"
         });
 
+        buildingsTileset = tileset;
         viewer.scene.primitives.add(tileset); 
-        console.log("OSM Buildings layer bound successfully.");
       }).catch(err => {
-        console.warn("Retrying building layer hook connection...", err);
         setTimeout(loadOSMBuildings, 1000);
       });
     }
@@ -423,6 +443,8 @@
 
     function exitToHome() {
       currentEngineMode = 'menu';
+      isCrashed = false;
+      document.getElementById('crash-screen').style.display = 'none';
       removeAxisGuides();
       viewer.scene.screenSpaceCameraController.enableInputs = true;
       document.getElementById('home-screen').style.display = 'flex';
@@ -558,6 +580,21 @@
       reader.readAsText(file);
     }
 
+    function triggerCrashState() {
+      isCrashed = true;
+      document.getElementById('crash-screen').style.display = 'flex';
+    }
+
+    function resetFromCrash() {
+      isCrashed = false;
+      document.getElementById('crash-screen').style.display = 'none';
+      pitch = 0;
+      roll = 0;
+      targetPitch = 0;
+      targetRoll = 0;
+      alt = 220.0; // Safely spawn back above core skyscraper thresholds
+    }
+
     let isLeftMouseDown = false;
     let lastMousePos = { x: 0, y: 0 };
     const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
@@ -639,7 +676,7 @@
     window.addEventListener('click', function(e) { if (!document.getElementById('brand-menu').contains(e.target) && !e.target.classList.contains('text-input-ui') && e.target.id !== 'menu-reveal-btn') { document.getElementById('dropdown-content').style.display = 'none'; } });
 
     let mouseX = 0, mouseY = 0;
-    window.addEventListener('mousemove', (e) => { if (isPaused || currentEngineMode !== 'sim') return; mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = 0 - ((e.clientY / window.innerHeight) * 2 - 1); });
+    window.addEventListener('mousemove', (e) => { if (isPaused || isCrashed || currentEngineMode !== 'sim') return; mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = 0 - ((e.clientY / window.innerHeight) * 2 - 1); });
     window.addEventListener('wheel', (e) => { 
       if (currentEngineMode === 'sim') { if (e.deltaY > 0) camDistance += 5; else camDistance = Math.max(2, camDistance - 5); }
     });
@@ -672,8 +709,10 @@
       }
 
       if (currentEngineMode === 'sim') {
-        if (isPaused) {
-          viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
+        if (isPaused || isCrashed) {
+          if (currentPos) {
+            viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
+          }
           return;
         }
 
@@ -701,6 +740,17 @@
         if (alt < bottomSafetyOffset) {
           alt = bottomSafetyOffset;
           if (pitch < 0.0) pitch = 0.0;
+        }
+
+        // Direct architectural primitive mesh sampling system (Avoiding standard box hitboxes)
+        if (buildingsTileset && viewer.scene.clampToHeightSupported) {
+          const cartographicCoords = Cesium.Cartographic.fromDegrees(lon, lat);
+          // Query explicit primitive intersection array coordinates at runtime position
+          const structuralHeight = viewer.scene.sampleHeight(cartographicCoords, [buildingsTileset]);
+          if (Cesium.defined(structuralHeight) && alt <= structuralHeight) {
+            triggerCrashState();
+            return;
+          }
         }
 
         if (airplane && airplane.model && loadedBlobURL) {
