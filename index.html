@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs</title>
+  <title>glwfs1</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -202,13 +202,20 @@
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXvyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Lyapi5jZXNpdW0uY29tIiwiYXVkIjoibGF3cmVuY2UyMTMxMl9kZWZhdWx0IiwiaWF0IjoxNzgxNzg0NDE5fQ.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
     
     let currentEngineMode = 'menu';
+    
+    // RESTORED: Regular 3D Global Earth viewport projection mesh layout
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, animation: false, timeline: false, geocoder: true,
+      terrainProvider: Cesium.createWorldTerrain(),
       baseLayer: Cesium.ImageryLayer.fromProviderAsync(Cesium.ArcGisMapServerImageryProvider.fromUrl('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'))
     });
     
     viewer.scene.globe.depthTestAgainstTerrain = true;
-    Cesium.createOsmBuildingsAsync().then((tileset) => { viewer.scene.primitives.add(tileset); });
+    
+    // Architectural infrastructure entities initialization wrapper
+    Cesium.createOsmBuildingsAsync().then((tileset) => { 
+      viewer.scene.primitives.add(tileset); 
+    });
 
     let lon = -74.0445, lat = 40.6892, alt = 200.0, heading = 0;
     let pitch = 0, roll = 0, targetPitch = 0, targetRoll = 0, smoothingFactor = 0.50;      
@@ -234,6 +241,7 @@
     
     const orientationProperty = new Cesium.CallbackProperty(() => {
       const center = positionProperty.getValue(viewer.clock.currentTime);
+      if (!center) return Cesium.Quaternion.IDENTITY;
       
       let finalH = profileData.modelOffsetH;
       let finalP = profileData.modelOffsetP;
@@ -245,7 +253,11 @@
         finalR += roll;
       }
 
-      const hpr = new Cesium.HeadingPitchRoll(Cesium.Math.toRadians(finalH), Cesium.Math.toRadians(finalR), Cesium.Math.toRadians(finalP));
+      const hpr = new Cesium.HeadingPitchRoll(
+        Cesium.Math.toRadians(finalH), 
+        Cesium.Math.toRadians(finalP), 
+        Cesium.Math.toRadians(finalR)
+      );
       return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
     }, false);
 
@@ -609,9 +621,29 @@
         
         const pitchRad = Cesium.Math.toRadians(pitch);
         const headingRad = Cesium.Math.toRadians(heading);
+        
         lon += Math.sin(headingRad) * speed * Math.cos(pitchRad);
         lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
+        
+        // Ground Mesh Sampling Height Framework
+        let groundHeight = 0.0;
+        if (viewer.scene.sampleHeight) {
+          const sampled = viewer.scene.sampleHeight(viewer.scene.clampToHeightMostDetailed([currentPos])[0]);
+          if (sampled && !isNaN(sampled)) {
+            const carto = Cesium.Cartographic.fromCartesian(sampled);
+            groundHeight = carto.height;
+          }
+        }
+
         alt += Math.sin(pitchRad) * (speed * 100000); 
+
+        // Ground Mesh Collision Framework Logic
+        if (alt < groundHeight) {
+          alt = groundHeight;
+          if (pitch < 0.0) {
+            pitch = 0.0;
+          }
+        }
 
         if (airplane && airplane.model && loadedBlobURL) {
           propRotationAngle += 0.5; if (propRotationAngle > Math.PI * 2) propRotationAngle -= Math.PI * 2;
@@ -629,7 +661,6 @@
         document.getElementById('alt-val').innerText = Math.round(alt);
         document.getElementById('spd-val').innerText = Math.round(speed * 1200000); 
 
-        // Safe follow logic: dynamic parsing prevents throwing camera into deep space matrices
         if (currentViewIndex === -1) {
           camHeading += (heading - camHeading) * (interpolationWeight * 2.5);
           viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
