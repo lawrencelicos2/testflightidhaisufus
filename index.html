@@ -210,7 +210,10 @@
     
     viewer.scene.globe.depthTestAgainstTerrain = false;
     
-    // RESTORED: Standard 3D structural outline building vector tileset mapping
+    // INSTANTIATED: Activated standard dynamic shadow system processing environment
+    viewer.shadows = true;
+    viewer.terrainShadows = Cesium.ShadowMode.ENABLED;
+    
     Cesium.createOsmBuildingsAsync().then((tileset) => { 
       viewer.scene.primitives.add(tileset); 
     });
@@ -261,7 +264,8 @@
 
     let airplane = viewer.entities.add({
       position: positionProperty, orientation: orientationProperty,
-      box: { dimensions: new Cesium.Cartesian3(1.5, 8.0, 1.5), material: Cesium.Color.RED }
+      box: { dimensions: new Cesium.Cartesian3(1.5, 8.0, 1.5), material: Cesium.Color.RED },
+      shadows: Cesium.ShadowMode.ENABLED // Force structural primitive shadow projection
     });
 
     function bootProgram(mode) {
@@ -401,7 +405,8 @@
       
       let modelConfig = {
         scale: new Cesium.CallbackProperty(() => profileData.modelScale, false),
-        runAnimations: false
+        runAnimations: false,
+        shadows: Cesium.ShadowMode.ENABLED // Set asset model to cast ambient shading maps
       };
 
       if (loadedBlobURL) {
@@ -420,7 +425,7 @@
       airplane = viewer.entities.add({
         position: positionProperty,
         orientation: orientationProperty,
-        ...(loadedBlobURL ? { model: modelConfig } : { box: { dimensions: new Cesium.Cartesian3(2, 8, 2), material: Cesium.Color.RED } })
+        ...(loadedBlobURL ? { model: modelConfig } : { box: { dimensions: new Cesium.Cartesian3(2, 8, 2), material: Cesium.Color.RED }, shadows: Cesium.ShadowMode.ENABLED })
       });
       
       if(loadedBlobURL) {
@@ -622,15 +627,17 @@
         }
 
         targetPitch = (-mouseY * 45); 
-        // FIXED: Roll input orientation flipped so dragging right rolls right
-        targetRoll = (mouseX * 45);  
+        // FIXED: Reversed input vector so pulling cursor right yields a right banking action natively
+        targetRoll = (-mouseX * 45);  
         
         let interpolationWeight = 1.0 - smoothingFactor;
         if (interpolationWeight < 0.01) interpolationWeight = 0.01;
 
         pitch += (targetPitch - pitch) * interpolationWeight;
         roll += (targetRoll - roll) * interpolationWeight;
-        heading -= (roll * 0.05);
+        
+        // FIXED: Heading calculation now perfectly tracks the corrected roll vector without inversion tracking bugs
+        heading += (roll * 0.05);
         
         const pitchRad = Cesium.Math.toRadians(pitch);
         const headingRad = Cesium.Math.toRadians(heading);
@@ -639,7 +646,7 @@
         lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
         alt += Math.sin(pitchRad) * (speed * 100000); 
 
-        // FIXED: Calculated dynamic collision boundaries incorporating the active scale parameters
+        // FIXED: Calculated scale metrics applied smoothly to bottom altitude layout matrix boundaries
         let bottomSafetyOffset = Math.max(1.5, profileData.modelScale * 1.25);
         if (alt < bottomSafetyOffset) {
           alt = bottomSafetyOffset;
@@ -659,7 +666,7 @@
           }
         }
 
-        document.getElementById('horizon-disc').style.transform = `rotate(${-roll}deg) translateY(${pitch * 1.5}px)`;
+        document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
         document.getElementById('horizon-degrees').innerText = `${Math.round(pitch)}°`;
         document.getElementById('alt-val').innerText = Math.round(alt);
         document.getElementById('spd-val').innerText = Math.round(speed * 1200000); 
