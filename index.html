@@ -210,9 +210,11 @@
     
     viewer.scene.globe.depthTestAgainstTerrain = false;
     
-    // INSTANTIATED: Activated standard dynamic shadow system processing environment
+    // SUNLIGHT ENVIRONMENT PIPELINE
     viewer.shadows = true;
     viewer.terrainShadows = Cesium.ShadowMode.ENABLED;
+    viewer.shadowMap.size = 2048; 
+    viewer.shadowMap.softShadows = true;
     
     Cesium.createOsmBuildingsAsync().then((tileset) => { 
       viewer.scene.primitives.add(tileset); 
@@ -240,32 +242,42 @@
 
     const positionProperty = new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false);
     
+    // FIXED: Separated alignment calibration matrix from standard runtime simulation transformations 
     const orientationProperty = new Cesium.CallbackProperty(() => {
       const center = positionProperty.getValue(viewer.clock.currentTime);
       if (!center) return Cesium.Quaternion.IDENTITY;
       
-      let finalH = profileData.modelOffsetH;
-      let finalP = profileData.modelOffsetP;
-      let finalR = profileData.modelOffsetR;
+      let finalH = heading;
+      let finalP = pitch;
+      let finalR = roll;
 
-      if (currentEngineMode === 'sim') {
-        finalH += heading;
-        finalP += pitch;
-        finalR += roll;
+      if (currentEngineMode === 'editor') {
+        finalH = 0; finalP = 0; finalR = 0;
       }
 
-      const hpr = new Cesium.HeadingPitchRoll(
+      // 1. Calculate aircraft frame rotation matrix across local landscape context
+      const flightRotation = new Cesium.HeadingPitchRoll(
         Cesium.Math.toRadians(finalH), 
         Cesium.Math.toRadians(finalP), 
         Cesium.Math.toRadians(finalR)
       );
-      return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
+      const flightQuaternion = Cesium.Transforms.headingPitchRollQuaternion(center, flightRotation);
+
+      // 2. Multiplicative injection of manual dashboard alignment values inside local space setup
+      const calibrationRotation = new Cesium.HeadingPitchRoll(
+        Cesium.Math.toRadians(profileData.modelOffsetH),
+        Cesium.Math.toRadians(profileData.modelOffsetP),
+        Cesium.Math.toRadians(profileData.modelOffsetR)
+      );
+      const calibrationQuaternion = Cesium.Quaternion.fromHeadingPitchRoll(calibrationRotation);
+
+      return Cesium.Quaternion.multiply(flightQuaternion, calibrationQuaternion, new Cesium.Quaternion());
     }, false);
 
     let airplane = viewer.entities.add({
       position: positionProperty, orientation: orientationProperty,
       box: { dimensions: new Cesium.Cartesian3(1.5, 8.0, 1.5), material: Cesium.Color.RED },
-      shadows: Cesium.ShadowMode.ENABLED // Force structural primitive shadow projection
+      shadows: Cesium.ShadowMode.ENABLED
     });
 
     function bootProgram(mode) {
@@ -406,7 +418,7 @@
       let modelConfig = {
         scale: new Cesium.CallbackProperty(() => profileData.modelScale, false),
         runAnimations: false,
-        shadows: Cesium.ShadowMode.ENABLED // Set asset model to cast ambient shading maps
+        shadows: Cesium.ShadowMode.ENABLED
       };
 
       if (loadedBlobURL) {
@@ -585,26 +597,13 @@
 
       if (currentEngineMode === 'editor') {
         let step = 0.4;
-        
         let sinYaw = Math.sin(editorCamYaw);
         let cosYaw = Math.cos(editorCamYaw);
 
-        if (activeKeys['w']) {
-          editorCamPosLocal.x += sinYaw * step;
-          editorCamPosLocal.y += cosYaw * step;
-        }
-        if (activeKeys['s']) {
-          editorCamPosLocal.x -= sinYaw * step;
-          editorCamPosLocal.y -= cosYaw * step;
-        }
-        if (activeKeys['a']) {
-          editorCamPosLocal.x -= cosYaw * step;
-          editorCamPosLocal.y += sinYaw * step;
-        }
-        if (activeKeys['d']) {
-          editorCamPosLocal.x += cosYaw * step;
-          editorCamPosLocal.y -= sinYaw * step;
-        }
+        if (activeKeys['w']) { editorCamPosLocal.x += sinYaw * step; editorCamPosLocal.y += cosYaw * step; }
+        if (activeKeys['s']) { editorCamPosLocal.x -= sinYaw * step; editorCamPosLocal.y -= cosYaw * step; }
+        if (activeKeys['a']) { editorCamPosLocal.x -= cosYaw * step; editorCamPosLocal.y += sinYaw * step; }
+        if (activeKeys['d']) { editorCamPosLocal.x += cosYaw * step; editorCamPosLocal.y -= sinYaw * step; }
 
         const localTransform = Cesium.Transforms.eastNorthUpToFixedFrame(currentPos);
         const worldCamLocation = Cesium.Matrix4.multiplyByPoint(localTransform, editorCamPosLocal, new Cesium.Cartesian3());
@@ -627,7 +626,7 @@
         }
 
         targetPitch = (-mouseY * 45); 
-        // FIXED: Reversed input vector so pulling cursor right yields a right banking action natively
+        // FIXED: Balanced targeting coordinate system map variables
         targetRoll = (-mouseX * 45);  
         
         let interpolationWeight = 1.0 - smoothingFactor;
@@ -636,7 +635,7 @@
         pitch += (targetPitch - pitch) * interpolationWeight;
         roll += (targetRoll - roll) * interpolationWeight;
         
-        // FIXED: Heading calculation now perfectly tracks the corrected roll vector without inversion tracking bugs
+        // FIXED: Turns smoothly toward banking angle natively
         heading += (roll * 0.05);
         
         const pitchRad = Cesium.Math.toRadians(pitch);
@@ -646,13 +645,15 @@
         lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
         alt += Math.sin(pitchRad) * (speed * 100000); 
 
-        // FIXED: Calculated scale metrics applied smoothly to bottom altitude layout matrix boundaries
         let bottomSafetyOffset = Math.max(1.5, profileData.modelScale * 1.25);
         if (alt < bottomSafetyOffset) {
           alt = bottomSafetyOffset;
-          if (pitch < 0.0) {
-            pitch = 0.0;
-          }
+          if (pitch < 0.0) pitch = 0.0;
+        }
+
+        // HEIGHT ADAPTIVE SHADOWS: Recalculates vector view matrix mapping limits based on altitude
+        if (viewer.shadowMap) {
+          viewer.shadowMap.maximumDistance = Math.max(alt * 4.0, 500.0);
         }
 
         if (airplane && airplane.model && loadedBlobURL) {
@@ -666,6 +667,7 @@
           }
         }
 
+        // FIXED: Synchronized dashboard disc widget mapping to match banking inputs exactly
         document.getElementById('horizon-disc').style.transform = `rotate(${roll}deg) translateY(${pitch * 1.5}px)`;
         document.getElementById('horizon-degrees').innerText = `${Math.round(pitch)}°`;
         document.getElementById('alt-val').innerText = Math.round(alt);
