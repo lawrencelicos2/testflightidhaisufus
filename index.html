@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs12</title>
+  <title>glwfs13</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -220,26 +220,40 @@
     
     let currentEngineMode = 'menu';
     
-    // Initializing the viewer cleanly using native satellite backdrop parameters directly
+    // Initialize viewer with 3D terrain and performance limits enabled natively
     const viewer = new Cesium.Viewer('cesiumContainer', { 
-      baseLayerPicker: false, animation: false, timeline: false, geocoder: true
+      baseLayerPicker: false, 
+      animation: false, 
+      timeline: false, 
+      geocoder: true,
+      terrainProvider: Cesium.Terrain.fromWorldTerrain() // Snaps buildings perfectly to elevation
     });
     
-    viewer.scene.globe.depthTestAgainstTerrain = false;
+    // Optimize performance settings to eliminate the rendering lag
+    viewer.scene.globe.depthTestAgainstTerrain = true; // Enables proper clipping hierarchy
     viewer.shadows = false;
-    
-    viewer.scene.globe.maximumScreenSpaceError = 1;
-    viewer.scene.globe.loadingDescendantLimit = 120;
+    viewer.scene.globe.maximumScreenSpaceError = 4.0; // Performance tuning for background imagery
+    viewer.scene.globe.loadingDescendantLimit = 40;
     viewer.scene.globe.preloadAncestors = true;
 
     function loadOSMBuildings() {
-      // Pulls native textured architectures directly over the satellite tracking base
       Cesium.createOsmBuildingsAsync().then((tileset) => { 
-        tileset.maximumScreenSpaceError = 1.0; 
-        tileset.maximumMemoryUsage = 2048;   
-        tileset.skipLevelOfDetail = false;     
-        tileset.cullRequestsWhileMoving = false; 
+        tileset.maximumScreenSpaceError = 16.0; // Dynamic LOD down-scaling eliminates engine latency
+        tileset.maximumMemoryUsage = 1024;   
+        tileset.skipLevelOfDetail = true;     
+        tileset.cullRequestsWhileMoving = true; 
         tileset.preloadFlightDestinations = true;
+        
+        // Custom color shader replaces the default brown/khaki with a modern off-white/slate style
+        tileset.style = new Cesium.Cesium3DTileStyle({
+          color: {
+            conditions: [
+              ['${feature[\"building:colour\"]} !== undefined', 'color(${feature[\"building:colour\"]})'],
+              ['true', 'color(\"#f3f4f6\", 0.95)'] // Bright, clean fallback styling
+            ]
+          }
+        });
+
         viewer.scene.primitives.add(tileset); 
       }).catch(err => {
         setTimeout(loadOSMBuildings, 1000);
