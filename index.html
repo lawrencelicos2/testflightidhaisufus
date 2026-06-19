@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs10</title>
+  <title>glwfs12</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -220,12 +220,9 @@
     
     let currentEngineMode = 'menu';
     
-    // Ingesting OpenStreetMap global flight texture maps mirroring GeoFS style
+    // Initializing the viewer cleanly using native satellite backdrop parameters directly
     const viewer = new Cesium.Viewer('cesiumContainer', { 
-      baseLayerPicker: false, animation: false, timeline: false, geocoder: true,
-      baseLayer: new Cesium.ImageryLayer(new Cesium.OpenStreetMapImageryProvider({
-        url : 'https://a.tile.openstreetmap.org/'
-      }))
+      baseLayerPicker: false, animation: false, timeline: false, geocoder: true
     });
     
     viewer.scene.globe.depthTestAgainstTerrain = false;
@@ -236,17 +233,13 @@
     viewer.scene.globe.preloadAncestors = true;
 
     function loadOSMBuildings() {
+      // Pulls native textured architectures directly over the satellite tracking base
       Cesium.createOsmBuildingsAsync().then((tileset) => { 
         tileset.maximumScreenSpaceError = 1.0; 
         tileset.maximumMemoryUsage = 2048;   
         tileset.skipLevelOfDetail = false;     
         tileset.cullRequestsWhileMoving = false; 
         tileset.preloadFlightDestinations = true;
-        
-        tileset.style = new Cesium.Cesium3DTileStyle({
-          color: "color('white', 1.0)"
-        });
-
         viewer.scene.primitives.add(tileset); 
       }).catch(err => {
         setTimeout(loadOSMBuildings, 1000);
