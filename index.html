@@ -224,20 +224,27 @@
     let currentViewIndex = -1;
     let camHeading = 0, camDistance = 40, isPaused = false, loadedBlobURL = null;
     
-    // First-Person Free-Look Camera Tracking Metric Offsets
-    let editorCamPosLocal = new Cesium.Cartesian3(0, -30, 2); // Initial location structural matrix offset
-    let editorCamYaw = 0.0;  // Mouse Horizontal rotation looks
-    let editorCamPitch = 0.0; // Mouse Vertical rotation looks
+    let editorCamPosLocal = new Cesium.Cartesian3(0, -30, 2); 
+    let editorCamYaw = 0.0;  
+    let editorCamPitch = 0.0; 
 
     let axisLinesEntity = null;
 
     const positionProperty = new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false);
     
+    // Heading parameter tracking decoupled entirely for Editor Mode stability
     const orientationProperty = new Cesium.CallbackProperty(() => {
       const center = positionProperty.getValue(viewer.clock.currentTime);
-      let finalH = heading + profileData.modelOffsetH;
-      let finalP = pitch + profileData.modelOffsetP;
-      let finalR = roll + profileData.modelOffsetR;
+      
+      let finalH = profileData.modelOffsetH;
+      let finalP = profileData.modelOffsetP;
+      let finalR = profileData.modelOffsetR;
+
+      if (currentEngineMode === 'sim') {
+        finalH += heading;
+        finalP += pitch;
+        finalR += roll;
+      }
 
       const hpr = new Cesium.HeadingPitchRoll(Cesium.Math.toRadians(finalH), Cesium.Math.toRadians(finalR), Cesium.Math.toRadians(finalP));
       return Cesium.Transforms.headingPitchRollQuaternion(center, hpr);
@@ -254,7 +261,6 @@
       document.getElementById('cesiumContainer').style.display = 'block';
       document.getElementById('brand-menu').style.display = 'block';
       
-      // Stop Cesium from overriding W/S controls inside native canvas wrappers
       viewer.scene.screenSpaceCameraController.enableInputs = false; 
 
       if(mode === 'sim') {
@@ -293,14 +299,12 @@
     function createAxisGuides() {
       removeAxisGuides();
       
-      // Compute positions dynamically relative to local aircraft reference frame
       const axisPositions = new Cesium.CallbackProperty(() => {
         const center = positionProperty.getValue(viewer.clock.currentTime);
         if (!center) return [];
 
         const transform = Cesium.Transforms.eastNorthUpToFixedFrame(center);
         
-        // Extend line rays outward from center point
         const pX_pos = Cesium.Matrix4.multiplyByPoint(transform, new Cesium.Cartesian3(100, 0, 0), new Cesium.Cartesian3());
         const pX_neg = Cesium.Matrix4.multiplyByPoint(transform, new Cesium.Cartesian3(-100, 0, 0), new Cesium.Cartesian3());
         
@@ -419,7 +423,6 @@
     }
 
     function captureCameraView() {
-      // Extract exact relative matrix offset components from FPV camera variables
       const savedView = {
         heading: editorCamYaw,
         pitch: editorCamPitch,
@@ -495,7 +498,6 @@
       const deltaX = movement.endPosition.x - lastMousePos.x;
       const deltaY = movement.endPosition.y - lastMousePos.y;
       
-      // Update FPV viewing angles
       editorCamYaw -= deltaX * 0.005;
       editorCamPitch = Math.max(-1.4, Math.min(1.4, editorCamPitch - deltaY * 0.005));
       
@@ -558,11 +560,9 @@
       if (currentEngineMode === 'editor') {
         let step = 0.4;
         
-        // Compute direction look vectors based on FPV angles
         let sinYaw = Math.sin(editorCamYaw);
         let cosYaw = Math.cos(editorCamYaw);
 
-        // Slide/Move First Person matrix bounds forward, back, or side to side
         if (activeKeys['w']) {
           editorCamPosLocal.x += sinYaw * step;
           editorCamPosLocal.y += cosYaw * step;
@@ -583,7 +583,6 @@
         const localTransform = Cesium.Transforms.eastNorthUpToFixedFrame(currentPos);
         const worldCamLocation = Cesium.Matrix4.multiplyByPoint(localTransform, editorCamPosLocal, new Cesium.Cartesian3());
         
-        // Position camera inside cockpit orientation or relative matrix bounds
         viewer.camera.position = worldCamLocation;
         viewer.camera.setView({
           orientation: {
@@ -615,7 +614,6 @@
         lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
         alt += Math.sin(pitchRad) * (speed * 100000); 
 
-        // Live Subnode animation loops
         if (airplane && airplane.model && loadedBlobURL) {
           propRotationAngle += 0.5; if (propRotationAngle > Math.PI * 2) propRotationAngle -= Math.PI * 2;
           
@@ -637,7 +635,6 @@
           camHeading += (heading - camHeading) * camSpeedMultiplier;
           viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
         } else {
-          // Dynamic translation logic mapping custom saved FPV cockpit positions onto the moving simulation coordinates
           const matchedView = profileData.savedCameraViews[currentViewIndex];
           const localTransform = Cesium.Transforms.eastNorthUpToFixedFrame(currentPos);
           
