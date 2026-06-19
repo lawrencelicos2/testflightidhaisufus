@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs3</title>
+  <title>glwfs4</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -200,8 +200,7 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">161</span>kn</div>
 
   <script>
-    // FRESHLY REGENERATED ACCESS TOKEN TO RESOLVE MISSING MESH BUILDINGS
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMWZiMzFiMC1kMDVmLTQ3YzAtODFkMC0xMTcxYzgyMDc0Y2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTg0OTQ3NH0.4ZssjESwVVd6uuGP_h-VCU_BHQx1x7ap_hs9omnFUIQ';
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMWZiMzFiMC1kMDVmLTQ3YzAtODFkMC0xMTcxYzgyMDc0Y2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTt4MTg0OTQ3NH0.4ZssjESwVVd6uuGP_h-VCU_BHQx1x7ap_hs9omnFUIQ';
     
     let currentEngineMode = 'menu';
     
@@ -224,10 +223,7 @@
       tileset.cullRequestsWhileMoving = false; 
       tileset.preloadFlightDestinations = true;
       
-      tileset.style = new Cesium.Cesium3DTileStyle({
-        color: 'color("white", 0.90)'
-      });
-
+      // Removed white override style so the default authentic textured color profiles load automatically
       viewer.scene.primitives.add(tileset); 
     });
 
