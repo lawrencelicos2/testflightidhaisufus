@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs6</title>
+  <title>glwfs7</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -216,7 +216,7 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">161</span>kn</div>
 
   <script>
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMWZiMzFiMC1kMDVmLTQ3YzAtODFkMC0xMTcxYzgyMDc0Y2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXvyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTg0OTQ3NH0.4ZssjESwVVd6uuGP_h-VCU_BHQx1x7ap_hs9omnFUIQ';
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMWZiMzFiMC1kMDVmLTQ3YzAtODFkMC0xMTcxYzgyMDc0Y2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTg0OTQ3NH0.4ZssjESwVVd6uuGP_h-VCU_BHQx1x7ap_hs9omnFUIQ';
     
     let currentEngineMode = 'menu';
     
@@ -227,27 +227,33 @@
     
     viewer.scene.globe.depthTestAgainstTerrain = false;
     viewer.shadows = false;
-    
     viewer.scene.globe.maximumScreenSpaceError = 1;
-    viewer.scene.globe.loadingDescendantLimit = 60;
-    viewer.scene.globe.preloadAncestors = true;
 
-    // Adjusted step properties to keep building positions locked tightly to maps during rotation
-    setTimeout(() => {
+    // Direct initialization retry loop to prevent network drops from swallowing building streams
+    function loadOSMBuildings() {
       Cesium.createOsmBuildingsAsync().then((tileset) => { 
-        tileset.maximumScreenSpaceError = 1.5; 
+        tileset.maximumScreenSpaceError = 1.0; 
         tileset.maximumMemoryUsage = 2048;   
         tileset.skipLevelOfDetail = false;     
         tileset.cullRequestsWhileMoving = false; 
-        tileset.preloadFlightDestinations = true;
+        
+        // Enforce solid architectural rendering rules and override default alpha components
+        tileset.style = new Cesium.Cesium3DTileStyle({
+          color: "color('white', 1.0)"
+        });
+
         viewer.scene.primitives.add(tileset); 
-      }).catch(err => console.error("OSM Asset pipeline stream failed:", err));
-    }, 400);
+        console.log("OSM Buildings layer bound successfully.");
+      }).catch(err => {
+        console.warn("Retrying building layer hook connection...", err);
+        setTimeout(loadOSMBuildings, 1000);
+      });
+    }
+    setTimeout(loadOSMBuildings, 500);
 
     let lon = -74.0445, lat = 40.6892, alt = 200.0, heading = 0;
     let pitch = 0, roll = 0, targetPitch = 0, targetRoll = 0, smoothingFactor = 0.50;      
     
-    // Balanced linear stepping setup for Cessna 172 flight limits (50kn Min to 161kn Max Cruise)
     const throttleLabels = {
       "1": 50, "2": 64, "3": 78, "4": 92, "5": 106, "6": 120, "7": 134, "8": 148, "9": 161
     };
@@ -308,7 +314,6 @@
       document.getElementById('cesiumContainer').style.display = 'block';
       
       revealHiddenMenu(); 
-      
       viewer.scene.screenSpaceCameraController.enableInputs = false; 
 
       if(mode === 'sim') {
