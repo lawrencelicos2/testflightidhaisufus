@@ -203,16 +203,15 @@
     
     let currentEngineMode = 'menu';
     
-    // RESTORED: Regular 3D Global Earth viewport projection mesh layout
+    // REVERTED: Re-established standard, optimized, fast-loading map context
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, animation: false, timeline: false, geocoder: true,
-      terrainProvider: Cesium.createWorldTerrain(),
       baseLayer: Cesium.ImageryLayer.fromProviderAsync(Cesium.ArcGisMapServerImageryProvider.fromUrl('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'))
     });
     
     viewer.scene.globe.depthTestAgainstTerrain = true;
     
-    // Architectural infrastructure entities initialization wrapper
+    // 3D Osm Buildings infrastructure layer setup
     Cesium.createOsmBuildingsAsync().then((tileset) => { 
       viewer.scene.primitives.add(tileset); 
     });
@@ -469,7 +468,20 @@
       reader.onload = function(e) {
         try {
           const parsed = JSON.parse(e.target.result);
-          profileData = { ...profileData, ...parsed };
+          
+          // FIXED: Safe mapping to prevent loading array verification errors
+          profileData = {
+            modelOffsetH: parsed.modelOffsetH || 0,
+            modelOffsetP: parsed.modelOffsetP || 0,
+            modelOffsetR: parsed.modelOffsetR || 0,
+            modelOffsetX: parsed.modelOffsetX || 0,
+            modelOffsetY: parsed.modelOffsetY || 0,
+            modelOffsetZ: parsed.modelOffsetZ || 0,
+            modelScale: parsed.modelScale || 1.0,
+            propNodeName: parsed.propNodeName || "",
+            flapNodeName: parsed.flapNodeName || "",
+            savedCameraViews: parsed.savedCameraViews || []
+          };
           
           document.getElementById('propNodeInput').value = profileData.propNodeName;
           document.getElementById('flapNodeInput').value = profileData.flapNodeName;
@@ -484,9 +496,9 @@
           syncControl('offsetR', profileData.modelOffsetR);
           
           rebuildAircraftEntity();
-          alert("Profile loaded!");
+          alert("Profile loaded successfully!");
         } catch(err) {
-          alert("Error loading config profile.");
+          alert("Error parsing config profile format.");
         }
       };
       reader.readAsText(file);
@@ -624,22 +636,11 @@
         
         lon += Math.sin(headingRad) * speed * Math.cos(pitchRad);
         lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
-        
-        // Ground Mesh Sampling Height Framework
-        let groundHeight = 0.0;
-        if (viewer.scene.sampleHeight) {
-          const sampled = viewer.scene.sampleHeight(viewer.scene.clampToHeightMostDetailed([currentPos])[0]);
-          if (sampled && !isNaN(sampled)) {
-            const carto = Cesium.Cartographic.fromCartesian(sampled);
-            groundHeight = carto.height;
-          }
-        }
-
         alt += Math.sin(pitchRad) * (speed * 100000); 
 
-        // Ground Mesh Collision Framework Logic
-        if (alt < groundHeight) {
-          alt = groundHeight;
+        // OPTIMIZED INSTANT COLLISION: Clamps to flat structural ground data instantly
+        if (alt < 0.0) {
+          alt = 0.0;
           if (pitch < 0.0) {
             pitch = 0.0;
           }
