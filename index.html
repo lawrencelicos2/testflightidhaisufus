@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs13</title>
+  <title>glwfs16</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -216,44 +216,69 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">161</span>kn</div>
 
   <script>
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMWZiMzFiMC1kMDVmLTQ3YzAtODFkMC0xMTcxYzgyMDc0Y2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTg0OTQ3NH0.4ZssjESwVVd6uuGP_h-VCU_BHQx1x7ap_hs9omnFUIQ';
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlMTgzODVmYi0xYmQ1LTQ4NzYtYWM3MS04NTRiY2VlMzIzN2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTg2MjEwMH0.eAbxUH02X1Vu42qOWJ4wrtaRtFq2K2dmhsbACrjl1F0';
     
     let currentEngineMode = 'menu';
     
-    // Initialize viewer with 3D terrain and performance limits enabled natively
+    // Max Settings Device Canvas Optimization Matrix
     const viewer = new Cesium.Viewer('cesiumContainer', { 
-      baseLayerPicker: false, 
-      animation: false, 
-      timeline: false, 
-      geocoder: true,
-      terrainProvider: Cesium.Terrain.fromWorldTerrain() // Snaps buildings perfectly to elevation
+      baseLayerPicker: false, animation: false, timeline: false, geocoder: true,
+      requestRenderMode: false,
+      contextOptions: {
+        webgl: {
+          alpha: false,
+          depth: true,
+          stencil: true,
+          antialias: true, // Native structural MSAA antialiasing
+          premultipliedAlpha: true,
+          preserveDrawingBuffer: false,
+          failIfMajorPerformanceCaveat: false
+        }
+      }
     });
     
-    // Optimize performance settings to eliminate the rendering lag
-    viewer.scene.globe.depthTestAgainstTerrain = true; // Enables proper clipping hierarchy
-    viewer.shadows = false;
-    viewer.scene.globe.maximumScreenSpaceError = 4.0; // Performance tuning for background imagery
-    viewer.scene.globe.loadingDescendantLimit = 40;
+    // Global Graphics Pipeline Overclocking Configuration
+    viewer.scene.globe.depthTestAgainstTerrain = true; // Turn depth buffer tracking on max resolution
+    viewer.scene.highDynamicRange = true; // High dynamic float range light mapping (HDR)
+    viewer.scene.light = new Cesium.SunLight(); // Photorealistic directional sun vector
+    viewer.scene.globe.enableLighting = true; // Sync dynamic atmosphere shader passes to terrain
+    
+    // Max out asset cache memory thresholds to eliminate texture/mesh flickering pop-in
+    viewer.scene.globe.maximumScreenSpaceError = 1;
+    viewer.scene.globe.loadingDescendantLimit = 200;
     viewer.scene.globe.preloadAncestors = true;
+
+    // Inject advanced post-processing rendering algorithms
+    if (Cesium.PostProcessStageLibrary.isAmbientOcclusionSupported(viewer.scene)) {
+      const ssao = Cesium.PostProcessStageLibrary.createAmbientOcclusionStage();
+      ssao.enabled = true;
+      ssao.uniforms.ambientOcclusionOnly = false;
+      ssao.uniforms.intensity = 2.5; // Accentuate structure shadows and geometric transitions
+      ssao.uniforms.bias = 0.1;
+      ssao.uniforms.lengthCap = 0.25;
+      ssao.uniforms.stepSize = 1.0;
+      ssao.uniforms.frustumLength = 1000.0;
+      viewer.scene.postProcessStages.add(ssao);
+    }
+    
+    // Turn on Bloom/Glow threshold parameters to reflect structural fuselage highlights
+    viewer.scene.postProcessStages.bloom.enabled = true;
+    viewer.scene.postProcessStages.bloom.uniforms.glowOnly = false;
+    viewer.scene.postProcessStages.bloom.uniforms.contrast = 124.0;
+    viewer.scene.postProcessStages.bloom.uniforms.brightness = 0.15;
+    viewer.scene.postProcessStages.bloom.uniforms.delta = 1.0;
+    viewer.scene.postProcessStages.bloom.uniforms.sigma = 2.0;
+
+    // Push hardware canvas pixel ratio matching to maximum engine capabilities
+    viewer.resolutionScale = window.devicePixelRatio || 1.0;
 
     function loadOSMBuildings() {
       Cesium.createOsmBuildingsAsync().then((tileset) => { 
-        tileset.maximumScreenSpaceError = 16.0; // Dynamic LOD down-scaling eliminates engine latency
-        tileset.maximumMemoryUsage = 1024;   
-        tileset.skipLevelOfDetail = true;     
-        tileset.cullRequestsWhileMoving = true; 
+        tileset.maximumScreenSpaceError = 1.0; 
+        tileset.maximumMemoryUsage = 4096; // Overclock heap ceiling allocation to 4GB memory processing
+        tileset.skipLevelOfDetail = false;     
+        tileset.cullRequestsWhileMoving = false; 
         tileset.preloadFlightDestinations = true;
-        
-        // Custom color shader replaces the default brown/khaki with a modern off-white/slate style
-        tileset.style = new Cesium.Cesium3DTileStyle({
-          color: {
-            conditions: [
-              ['${feature[\"building:colour\"]} !== undefined', 'color(${feature[\"building:colour\"]})'],
-              ['true', 'color(\"#f3f4f6\", 0.95)'] // Bright, clean fallback styling
-            ]
-          }
-        });
-
         viewer.scene.primitives.add(tileset); 
       }).catch(err => {
         setTimeout(loadOSMBuildings, 1000);
@@ -467,7 +492,8 @@
       
       let modelConfig = {
         scale: new Cesium.CallbackProperty(() => profileData.modelScale, false),
-        runAnimations: false
+        runAnimations: false,
+        shadows: Cesium.ShadowMode.ENABLED // Restores dynamic structural shadow cascades
       };
 
       if (loadedBlobURL) {
@@ -635,6 +661,11 @@
           alertBox.innerText = currentViewIndex === -1 ? "View: Standard Follow" : `View: Custom Cockpit Cam #${currentViewIndex + 1}`;
           alertBox.style.display = 'block';
           setTimeout(() => { alertBox.style.display = 'none'; }, 1500);
+        } else {
+          const alertBox = document.getElementById('view-alert');
+          alertBox.innerText = "No Saved Views Available! Save one in Editor Mode.";
+          alertBox.style.display = 'block';
+          setTimeout(() => { alertBox.style.display = 'none'; }, 2000);
         }
       }
       if (e.key.toLowerCase() === 'p' && currentEngineMode === 'sim') {
@@ -732,7 +763,7 @@
         
         document.getElementById('spd-val').innerText = throttleLabels[activeThrottleKey]; 
 
-        if (currentViewIndex === -1) {
+        if (currentViewIndex === -1 || !profileData.savedCameraViews || profileData.savedCameraViews.length === 0 || !profileData.savedCameraViews[currentViewIndex]) {
           camHeading += (heading - camHeading) * (interpolationWeight * 2.5);
           viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
         } else {
