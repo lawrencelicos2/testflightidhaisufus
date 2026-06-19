@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs4</title>
+  <title>glwfs5</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -22,15 +22,23 @@
 
     /* Top Left Integrated Dropdown UI Container */
     #brand-menu { display: none; position: absolute; top: 20px; left: 20px; z-index: 1000; }
-    #brand-logo { color: #fff; background: rgba(15,23,42,0.9); padding: 10px 20px; font-weight: bold; border-radius: 4px; border: 1px solid #3182ce; cursor: pointer; user-select: none; backdrop-filter: blur(4px); }
-    #dropdown-content { display: none; position: absolute; top: 100%; left: 0; background: rgba(15,23,42,0.95); margin-top: 5px; border-radius: 4px; border: 1px solid #4a5568; width: 280px; overflow: hidden; }
+    #menu-wrapper { display: flex; flex-direction: column; gap: 5px; }
+    #brand-logo { color: #fff; background: rgba(15,23,42,0.9); padding: 10px 20px; font-weight: bold; border-radius: 4px; border: 1px solid #3182ce; cursor: pointer; user-select: none; backdrop-filter: blur(4px); display: flex; justify-content: space-between; align-items: center; gap: 15px; }
+    #close-menu-btn { background: none; border: none; color: #ef4444; font-weight: bold; cursor: pointer; font-size: 14px; padding: 0 4px; }
+    #close-menu-btn:hover { color: #f87171; }
+    
+    #dropdown-content { display: none; background: rgba(15,23,42,0.95); border-radius: 4px; border: 1px solid #4a5568; width: 280px; overflow: hidden; }
     .dropdown-item { color: #fff; padding: 12px 15px; font-size: 14px; text-decoration: none; display: block; cursor: pointer; }
     .dropdown-item:hover { background: #3182ce; }
     
     /* Config Panel Frame layouts */
-    #controls-panel { display: none; color: #fff; background: rgba(15,23,42,0.9); padding: 15px; border-radius: 4px; border: 1px solid #475569; margin-top: 5px; width: 280px; font-size: 13px; line-height: 1.5; max-height: 75vh; overflow-y: auto; backdrop-filter: blur(4px); }
+    #controls-panel { display: none; color: #fff; background: rgba(15,23,42,0.9); padding: 15px; border-radius: 4px; border: 1px solid #475569; width: 280px; font-size: 13px; line-height: 1.5; max-height: 70vh; overflow-y: auto; backdrop-filter: blur(4px); }
     #controls-panel h4 { margin: 12px 0 6px 0; color: #60a5fa; font-size: 14px; border-bottom: 1px solid #334155; padding-bottom: 4px; }
     #controls-panel h4:first-of-type { margin-top: 0; }
+    
+    /* Reveal Mini Button */
+    #menu-reveal-btn { display: none; position: absolute; top: 20px; left: 20px; z-index: 1001; background: rgba(15,23,42,0.9); border: 1px solid #3182ce; color: #fff; padding: 8px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; backdrop-filter: blur(4px); }
+    #menu-reveal-btn:hover { background: #1e293b; border-color: #3b82f6; }
     
     .slider-container { margin-top: 8px; padding-top: 4px; }
     .slider-container label { display: block; font-weight: bold; margin-bottom: 4px; color: #cbd5e0; }
@@ -83,113 +91,121 @@
   <div id="pause-overlay">PAUSED</div>
   <div id="view-alert">View Swapped</div>
   
-  <div id="brand-menu">
-    <div id="brand-logo" onclick="toggleDropdown()">SYSTEM MENU ▾</div>
-    <div id="dropdown-content">
-      <div class="dropdown-item" id="menu-toggle-text" onclick="toggleControlsPanel()">Flight Controls & Mesh</div>
-      <div class="dropdown-item" style="color:#ef4444; font-weight:bold; border-top:1px solid #334155;" onclick="exitToHome()">Exit to Main Menu</div>
-    </div>
-    
-    <div id="controls-panel">
-      <div id="sim-instructions">
-        <h4>Navigation & Control</h4>
-        • <b>Mouse</b>: Pitch & Roll dynamics<br>
-        • <b>Keys 1 - 9</b>: Step Velocity Throttle<br>
-        • <b>Scroll Wheel</b>: Distance zoom<br>
-        • <b>P Key</b>: Pause physics tracking<br>
-        • <b>C Key</b>: Cycle Custom Views (<span id="view-count-lbl">0</span> saved)<br>
-      </div>
+  <button id="menu-reveal-btn" onclick="revealHiddenMenu()">MENU ▾</button>
 
-      <div id="editor-instructions" style="display:none;">
-        <h4>First Person Camera Flight</h4>
-        • <b>W / S</b>: Fly Forward / Backward<br>
-        • <b>A / D</b>: Strafe Left / Right<br>
-        • <b>Left Click + Drag</b>: Look / Aim View<br>
-        • <b style="color:#f87171;">Axis Lines:</b> X=Red, Y=Green, Z=Blue<br>
+  <div id="brand-menu">
+    <div id="menu-wrapper">
+      <div id="brand-logo" onclick="toggleDropdown()">
+        <span>SYSTEM MENU ▾</span>
+        <button id="close-menu-btn" onclick="hideMenuSystem(event)">✕</button>
+      </div>
+      <div id="dropdown-content">
+        <div class="dropdown-item" id="menu-toggle-text" onclick="toggleControlsPanel()">Flight Controls & Mesh</div>
+        <div class="dropdown-item" style="color:#ef4444; font-weight:bold; border-top:1px solid #334155;" onclick="exitToHome()">Exit to Main Menu</div>
       </div>
       
-      <div class="slider-container" id="smoothing-block" style="border-top: 1px solid #334155; padding-top: 8px;">
-        <label>Rotation Smoothing</label>
-        <div class="slider-row">
-          <input type="range" id="smoothSlider" class="slider-ui" min="0.5" max="1.0" step="0.05" value="0.50" oninput="syncControl('smooth', this.value)">
-          <input type="text" id="smoothInput" class="input-ui" value="0.50" onchange="syncControl('smooth', this.value)">
+      <div id="controls-panel">
+        <div id="sim-instructions">
+          <h4>Navigation & Control</h4>
+          • <b>Mouse</b>: Pitch & Roll dynamics<br>
+          • <b>Keys 1 - 9</b>: Step Velocity Throttle<br>
+          • <b>Scroll Wheel</b>: Distance zoom<br>
+          • <b>P Key</b>: Pause physics tracking<br>
+          • <b>C Key</b>: Cycle Custom Views (<span id="view-count-lbl">0</span> saved)<br>
+          • <b>H Key</b>: Toggle Menu Visibility shortcut<br>
         </div>
-      </div>
 
-      <h4>Asset Ingestion Pipeline</h4>
-      <label for="glb-loader" class="file-label">Load Plane GLB Mesh</label>
-      <input type="file" id="glb-loader" accept=".glb" style="display:none;" onchange="handleGLBLoad(event)">
+        <div id="editor-instructions" style="display:none;">
+          <h4>First Person Camera Flight</h4>
+          • <b>W / S</b>: Fly Forward / Backward<br>
+          • <b>A / D</b>: Strafe Left / Right<br>
+          • <b>Left Click + Drag</b>: Look / Aim View<br>
+          • <b style="color:#f87171;">Axis Lines:</b> X=Red, Y=Green, Z=Blue<br>
+        </div>
+        
+        <div class="slider-container" id="smoothing-block" style="border-top: 1px solid #334155; padding-top: 8px;">
+          <label>Rotation Smoothing</label>
+          <div class="slider-row">
+            <input type="range" id="smoothSlider" class="slider-ui" min="0.5" max="1.0" step="0.05" value="0.50" oninput="syncControl('smooth', this.value)">
+            <input type="text" id="smoothInput" class="input-ui" value="0.50" onchange="syncControl('smooth', this.value)">
+          </div>
+        </div>
 
-      <h4>Interactive Component Setup</h4>
-      <div class="slider-container">
-        <label>Propeller Node ID</label>
-        <input type="text" id="propNodeInput" class="text-input-ui" placeholder="Type node name string..." oninput="updateNodeID('prop', this.value)">
-      </div>
-      <div class="slider-container">
-        <label>Flaps Component Node ID</label>
-        <input type="text" id="flapNodeInput" class="text-input-ui" placeholder="Type node name string..." oninput="updateNodeID('flap', this.value)">
-      </div>
+        <h4>Asset Ingestion Pipeline</h4>
+        <label for="glb-loader" class="file-label">Load Plane GLB Mesh</label>
+        <input type="file" id="glb-loader" accept=".glb" style="display:none;" onchange="handleGLBLoad(event)">
 
-      <div id="editor-camera-block" style="display:none;">
-        <h4>Camera View Mapping</h4>
-        <button class="btn-action btn-save" onclick="captureCameraView()">Capture & Save Camera View</button>
-      </div>
+        <h4>Interactive Component Setup</h4>
+        <div class="slider-container">
+          <label>Propeller Node ID</label>
+          <input type="text" id="propNodeInput" class="text-input-ui" placeholder="Type node name string..." oninput="updateNodeID('prop', this.value)">
+        </div>
+        <div class="slider-container">
+          <label>Flaps Component Node ID</label>
+          <input type="text" id="flapNodeInput" class="text-input-ui" placeholder="Type node name string..." oninput="updateNodeID('flap', this.value)">
+        </div>
 
-      <h4>Visual Configuration Metrics</h4>
-      <div class="slider-container">
-        <label>Size Multiplier</label>
-        <div class="slider-row">
-          <input type="range" id="scaleSlider" class="slider-ui" min="1" max="100" value="1" oninput="syncControl('scale', this.value)">
-          <input type="text" id="scaleInput" class="input-ui" value="1" onchange="syncControl('scale', this.value)">
+        <div id="editor-camera-block" style="display:none;">
+          <h4>Camera View Mapping</h4>
+          <button class="btn-action btn-save" onclick="captureCameraView()">Capture & Save Camera View</button>
         </div>
-      </div>
-      <div class="slider-container">
-        <label>Mesh Translation X Offset</label>
-        <div class="slider-row">
-          <input type="range" id="offsetXSlider" class="slider-ui" min="-50" max="50" value="0" oninput="syncControl('offsetX', this.value)">
-          <input type="text" id="offsetXInput" class="input-ui" value="0" onchange="syncControl('offsetX', this.value)">
-        </div>
-      </div>
-      <div class="slider-container">
-        <label>Mesh Translation Y Offset</label>
-        <div class="slider-row">
-          <input type="range" id="offsetYSlider" class="slider-ui" min="-50" max="50" value="0" oninput="syncControl('offsetY', this.value)">
-          <input type="text" id="offsetYInput" class="input-ui" value="0" onchange="syncControl('offsetY', this.value)">
-        </div>
-      </div>
-      <div class="slider-container">
-        <label>Mesh Translation Z Offset</label>
-        <div class="slider-row">
-          <input type="range" id="offsetZSlider" class="slider-ui" min="-50" max="50" value="0" oninput="syncControl('offsetZ', this.value)">
-          <input type="text" id="offsetZInput" class="input-ui" value="0" onchange="syncControl('offsetZ', this.value)">
-        </div>
-      </div>
 
-      <h4>Axis Orientation Matrix Offset (Deg)</h4>
-      <div class="slider-container">
-        <label>Heading Alignment Offset</label>
-        <div class="slider-row">
-          <input type="range" id="offsetHSlider" class="slider-ui" min="0" max="360" value="0" oninput="syncControl('offsetH', this.value)">
-          <input type="text" id="offsetHInput" class="input-ui" value="0" onchange="syncControl('offsetH', this.value)">
+        <h4>Visual Configuration Metrics</h4>
+        <div class="slider-container">
+          <label>Size Multiplier</label>
+          <div class="slider-row">
+            <input type="range" id="scaleSlider" class="slider-ui" min="1" max="100" value="1" oninput="syncControl('scale', this.value)">
+            <input type="text" id="scaleInput" class="input-ui" value="1" onchange="syncControl('scale', this.value)">
+          </div>
         </div>
-      </div>
-      <div class="slider-container">
-        <label>Pitch Calibration Offset</label>
-        <div class="slider-row">
-          <input type="range" id="offsetPSlider" class="slider-ui" min="0" max="360" value="0" oninput="syncControl('offsetP', this.value)">
-          <input type="text" id="offsetPInput" class="input-ui" value="0" onchange="syncControl('offsetP', this.value)">
+        <div class="slider-container">
+          <label>Mesh Translation X Offset</label>
+          <div class="slider-row">
+            <input type="range" id="offsetXSlider" class="slider-ui" min="-50" max="50" value="0" oninput="syncControl('offsetX', this.value)">
+            <input type="text" id="offsetXInput" class="input-ui" value="0" onchange="syncControl('offsetX', this.value)">
+          </div>
         </div>
-      </div>
-      <div class="slider-container">
-        <label>Roll Calibration Offset</label>
-        <div class="slider-row">
-          <input type="range" id="offsetRSlider" class="slider-ui" min="0" max="360" value="0" oninput="syncControl('offsetR', this.value)">
-          <input type="text" id="offsetRInput" class="input-ui" value="0" onchange="syncControl('offsetR', this.value)">
+        <div class="slider-container">
+          <label>Mesh Translation Y Offset</label>
+          <div class="slider-row">
+            <input type="range" id="offsetYSlider" class="slider-ui" min="-50" max="50" value="0" oninput="syncControl('offsetY', this.value)">
+            <input type="text" id="offsetYInput" class="input-ui" value="0" onchange="syncControl('offsetY', this.value)">
+          </div>
         </div>
-      </div>
+        <div class="slider-container">
+          <label>Mesh Translation Z Offset</label>
+          <div class="slider-row">
+            <input type="range" id="offsetZSlider" class="slider-ui" min="-50" max="50" value="0" oninput="syncControl('offsetZ', this.value)">
+            <input type="text" id="offsetZInput" class="input-ui" value="0" onchange="syncControl('offsetZ', this.value)">
+          </div>
+        </div>
 
-      <h4 style="margin-top:15px; border-top:1px solid #334155; padding-top:10px;">Workbench Export System</h4>
-      <button class="btn-action btn-export" onclick="exportConfigProfile()">Export Plane Configuration File</button>
+        <h4>Axis Orientation Matrix Offset (Deg)</h4>
+        <div class="slider-container">
+          <label>Heading Alignment Offset</label>
+          <div class="slider-row">
+            <input type="range" id="offsetHSlider" class="slider-ui" min="0" max="360" value="0" oninput="syncControl('offsetH', this.value)">
+            <input type="text" id="offsetHInput" class="input-ui" value="0" onchange="syncControl('offsetH', this.value)">
+          </div>
+        </div>
+        <div class="slider-container">
+          <label>Pitch Calibration Offset</label>
+          <div class="slider-row">
+            <input type="range" id="offsetPSlider" class="slider-ui" min="0" max="360" value="0" oninput="syncControl('offsetP', this.value)">
+            <input type="text" id="offsetPInput" class="input-ui" value="0" onchange="syncControl('offsetP', this.value)">
+          </div>
+        </div>
+        <div class="slider-container">
+          <label>Roll Calibration Offset</label>
+          <div class="slider-row">
+            <input type="range" id="offsetRSlider" class="slider-ui" min="0" max="360" value="0" oninput="syncControl('offsetR', this.value)">
+            <input type="text" id="offsetRInput" class="input-ui" value="0" onchange="syncControl('offsetR', this.value)">
+          </div>
+        </div>
+
+        <h4 style="margin-top:15px; border-top:1px solid #334155; padding-top:10px;">Workbench Export System</h4>
+        <button class="btn-action btn-export" onclick="exportConfigProfile()">Export Plane Configuration File</button>
+      </div>
     </div>
   </div>
   
@@ -200,7 +216,7 @@
   <div id="spd-indicator">SPD<br><span id="spd-val">161</span>kn</div>
 
   <script>
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMWZiMzFiMC1kMDVmLTQ3YzAtODFkMC0xMTcxYzgyMDc0Y2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTt4MTg0OTQ3NH0.4ZssjESwVVd6uuGP_h-VCU_BHQx1x7ap_hs9omnFUIQ';
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMWZiMzFiMC1kMDVmLTQ3YzAtODFkMC0xMTcxYzgyMDc0Y2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTg0OTQ3NH0.4ZssjESwVVd6uuGP_h-VCU_BHQx1x7ap_hs9omnFUIQ';
     
     let currentEngineMode = 'menu';
     
@@ -216,22 +232,27 @@
     viewer.scene.globe.loadingDescendantLimit = 60;
     viewer.scene.globe.preloadAncestors = true;
 
-    Cesium.createOsmBuildingsAsync().then((tileset) => { 
-      tileset.maximumScreenSpaceError = 2; 
-      tileset.maximumMemoryUsage = 2048;   
-      tileset.skipLevelOfDetail = true;     
-      tileset.cullRequestsWhileMoving = false; 
-      tileset.preloadFlightDestinations = true;
-      
-      // Removed white override style so the default authentic textured color profiles load automatically
-      viewer.scene.primitives.add(tileset); 
-    });
+    // Timeout protective delay loop to stop early load engine race bugs dropping buildings
+    setTimeout(() => {
+      Cesium.createOsmBuildingsAsync().then((tileset) => { 
+        tileset.maximumScreenSpaceError = 2; 
+        tileset.maximumMemoryUsage = 2048;   
+        tileset.skipLevelOfDetail = true;     
+        tileset.cullRequestsWhileMoving = false; 
+        tileset.preloadFlightDestinations = true;
+        viewer.scene.primitives.add(tileset); 
+      }).catch(err => console.error("OSM Asset pipeline stream failed:", err));
+    }, 400);
 
     let lon = -74.0445, lat = 40.6892, alt = 200.0, heading = 0;
     let pitch = 0, roll = 0, targetPitch = 0, targetRoll = 0, smoothingFactor = 0.50;      
     
+    // Linearly divided throttle matrix matching HUD readout to engine physics speed stepping
     const throttleLabels = {
       "1": 16, "2": 32, "3": 48, "4": 64, "5": 80, "6": 96, "7": 112, "8": 128, "9": 161
+    };
+    const flightSpeedMultipliers = {
+      "1": 0.0000025, "2": 0.000005, "3": 0.0000075, "4": 0.000010, "5": 0.0000125, "6": 0.000015, "7": 0.0000175, "8": 0.000020, "9": 0.000025
     };
     let activeThrottleKey = "9"; 
 
@@ -285,7 +306,8 @@
       currentEngineMode = mode;
       document.getElementById('home-screen').style.display = 'none';
       document.getElementById('cesiumContainer').style.display = 'block';
-      document.getElementById('brand-menu').style.display = 'block';
+      
+      revealHiddenMenu(); // Ensure window defaults back to open state on initial engine boot
       
       viewer.scene.screenSpaceCameraController.enableInputs = false; 
 
@@ -320,6 +342,17 @@
         currentViewIndex = -1;
       }
       rebuildAircraftEntity();
+    }
+
+    function hideMenuSystem(event) {
+      if(event) event.stopPropagation(); // Stop parent dropdown layer trigger clicks
+      document.getElementById('brand-menu').style.display = 'none';
+      document.getElementById('menu-reveal-btn').style.display = 'block';
+    }
+
+    function revealHiddenMenu() {
+      document.getElementById('brand-menu').style.display = 'block';
+      document.getElementById('menu-reveal-btn').style.display = 'none';
     }
 
     function createAxisGuides() {
@@ -390,6 +423,7 @@
       document.getElementById('home-screen').style.display = 'flex';
       document.getElementById('cesiumContainer').style.display = 'none';
       document.getElementById('brand-menu').style.display = 'none';
+      document.getElementById('menu-reveal-btn').style.display = 'none';
       document.getElementById('controls-panel').style.display = 'none';
       document.getElementById('dropdown-content').style.display = 'none';
     }
@@ -570,6 +604,15 @@
         activeThrottleKey = e.key;
       }
 
+      if (e.key.toLowerCase() === 'h' && currentEngineMode !== 'menu') {
+        const isCurrentlyVisible = document.getElementById('brand-menu').style.display !== 'none';
+        if (isCurrentlyVisible) {
+          hideMenuSystem();
+        } else {
+          revealHiddenMenu();
+        }
+      }
+
       if (e.key.toLowerCase() === 'c' && currentEngineMode === 'sim') {
         if (profileData.savedCameraViews.length > 0) {
           currentViewIndex = (currentViewIndex + 1) >= profileData.savedCameraViews.length ? -1 : currentViewIndex + 1;
@@ -588,7 +631,7 @@
 
     function toggleDropdown() { const display = document.getElementById('dropdown-content').style.display; document.getElementById('dropdown-content').style.display = (display === 'block') ? 'none' : 'block'; }
     function toggleControlsPanel() { const panel = document.getElementById('controls-panel'); panel.style.display = (panel.style.display === 'block') ? 'none' : 'block'; document.getElementById('dropdown-content').style.display = 'none'; }
-    window.addEventListener('click', function(e) { if (!document.getElementById('brand-menu').contains(e.target) && !e.target.classList.contains('text-input-ui')) { document.getElementById('dropdown-content').style.display = 'none'; } });
+    window.addEventListener('click', function(e) { if (!document.getElementById('brand-menu').contains(e.target) && !e.target.classList.contains('text-input-ui') && e.target.id !== 'menu-reveal-btn') { document.getElementById('dropdown-content').style.display = 'none'; } });
 
     let mouseX = 0, mouseY = 0;
     window.addEventListener('mousemove', (e) => { if (isPaused || currentEngineMode !== 'sim') return; mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = 0 - ((e.clientY / window.innerHeight) * 2 - 1); });
@@ -597,7 +640,6 @@
     });
 
     viewer.clock.onTick.addEventListener(() => {
-      const speed = 0.000025;
       const currentPos = positionProperty.getValue(viewer.clock.currentTime);
 
       if (currentEngineMode === 'editor') {
@@ -643,6 +685,9 @@
         
         const pitchRad = Cesium.Math.toRadians(pitch);
         const headingRad = Cesium.Math.toRadians(heading);
+        
+        // Use the dynamically parsed step-down speed modifier array based on active throttle key selection
+        const speed = flightSpeedMultipliers[activeThrottleKey] || 0.000025;
         
         lon += Math.sin(headingRad) * speed * Math.cos(pitchRad);
         lat += Math.cos(headingRad) * speed * Math.cos(pitchRad);
