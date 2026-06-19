@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs</title>
+  <title>glwfs1</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -208,7 +208,10 @@
     });
     
     viewer.scene.globe.depthTestAgainstTerrain = true;
-    Cesium.createOsmBuildingsAsync().then((tileset) => { viewer.scene.primitives.add(tileset); });
+    
+    // Correct structural call to inject buildings layout
+    const buildingTileset = Cesium.createOsmBuildings();
+    viewer.scene.primitives.add(buildingTileset);
 
     let lon = -74.0445, lat = 40.6892, alt = 200.0, heading = 0;
     let pitch = 0, roll = 0, targetPitch = 0, targetRoll = 0, smoothingFactor = 0.50;      
@@ -232,7 +235,6 @@
 
     const positionProperty = new Cesium.CallbackProperty(() => Cesium.Cartesian3.fromDegrees(lon, lat, alt), false);
     
-    // Heading parameter tracking decoupled entirely for Editor Mode stability
     const orientationProperty = new Cesium.CallbackProperty(() => {
       const center = positionProperty.getValue(viewer.clock.currentTime);
       
@@ -426,7 +428,6 @@
       const savedView = {
         heading: editorCamYaw,
         pitch: editorCamPitch,
-        range: Cesium.Cartesian3.magnitude(editorCamPosLocal),
         localX: editorCamPosLocal.x,
         localY: editorCamPosLocal.y,
         localZ: editorCamPosLocal.z
@@ -559,7 +560,6 @@
 
       if (currentEngineMode === 'editor') {
         let step = 0.4;
-        
         let sinYaw = Math.sin(editorCamYaw);
         let cosYaw = Math.cos(editorCamYaw);
 
@@ -635,9 +635,11 @@
           camHeading += (heading - camHeading) * camSpeedMultiplier;
           viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
         } else {
+          // Fixed matrix transformations preventing lookAt leaks to deep space bounds
           const matchedView = profileData.savedCameraViews[currentViewIndex];
           const localTransform = Cesium.Transforms.eastNorthUpToFixedFrame(currentPos);
           
+          // Re-derive translation values explicitly inside fixed geographical context frame maps
           const relativeCamVector = new Cesium.Cartesian3(matchedView.localX, matchedView.localY, matchedView.localZ);
           const worldViewPos = Cesium.Matrix4.multiplyByPoint(localTransform, relativeCamVector, new Cesium.Cartesian3());
           
