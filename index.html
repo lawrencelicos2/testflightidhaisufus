@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs17</title>
+  <title>glwfs18</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -131,6 +131,22 @@
           </div>
         </div>
 
+        <h4>Dynamic Post Processing Shaders</h4>
+        <div class="slider-container">
+          <label>Ambient Occlusion Intensity</label>
+          <div class="slider-row">
+            <input type="range" id="ssaoSlider" class="slider-ui" min="0" max="10" step="0.5" value="3.0" oninput="updateShaderConfig('ssao', this.value)">
+            <input type="text" id="ssaoInput" class="input-ui" value="3.0" onchange="updateShaderConfig('ssao', this.value)">
+          </div>
+        </div>
+        <div class="slider-container">
+          <label>Bloom Glow Contrast</label>
+          <div class="slider-row">
+            <input type="range" id="bloomSlider" class="slider-ui" min="0" max="250" step="5" value="118" oninput="updateShaderConfig('bloom', this.value)">
+            <input type="text" id="bloomInput" class="input-ui" value="118" onchange="updateShaderConfig('bloom', this.value)">
+          </div>
+        </div>
+
         <h4>Asset Ingestion Pipeline</h4>
         <label for="glb-loader" class="file-label">Load Plane GLB Mesh</label>
         <input type="file" id="glb-loader" accept=".glb" style="display:none;" onchange="handleGLBLoad(event)">
@@ -220,7 +236,6 @@
     
     let currentEngineMode = 'menu';
     
-    // High Dynamic Vector Performance Canvas Initialization
     const viewer = new Cesium.Viewer('cesiumContainer', { 
       baseLayerPicker: false, animation: false, timeline: false, geocoder: true,
       requestRenderMode: false,
@@ -229,7 +244,7 @@
           alpha: false,
           depth: true,
           stencil: true,
-          antialias: true, // Native structural hardware multi-sampling antialiasing
+          antialias: true,
           premultipliedAlpha: true,
           preserveDrawingBuffer: false,
           failIfMajorPerformanceCaveat: false
@@ -237,29 +252,26 @@
       }
     });
     
-    // Complete High-Fidelity Ambient & Physics Engine Activation 
     viewer.scene.globe.depthTestAgainstTerrain = true; 
-    viewer.scene.highDynamicRange = true; // HDR float-point calculations enabled
-    viewer.scene.light = new Cesium.SunLight(); // Dynamic specular light ray vector
-    viewer.scene.globe.enableLighting = true; // Sync shaders accurately across globe horizon
+    viewer.scene.highDynamicRange = true; 
+    viewer.scene.light = new Cesium.SunLight(); 
+    viewer.scene.globe.enableLighting = true; 
     
-    // Optimization thresholds to eliminate asset popping
     viewer.scene.globe.maximumScreenSpaceError = 1;
     viewer.scene.globe.loadingDescendantLimit = 200;
     viewer.scene.globe.preloadAncestors = true;
 
-    // Secure Native Ambient Occlusion integration (safely handling deep texture targets)
+    // Secure Native Shaders initialization loop
     if (viewer.scene.postProcessStages.ambientOcclusion) {
       viewer.scene.postProcessStages.ambientOcclusion.enabled = true;
       viewer.scene.postProcessStages.ambientOcclusion.uniforms.ambientOcclusionOnly = false;
-      viewer.scene.postProcessStages.ambientOcclusion.uniforms.intensity = 3.0; // Deep geometry structure shadows
+      viewer.scene.postProcessStages.ambientOcclusion.uniforms.intensity = 3.0; 
       viewer.scene.postProcessStages.ambientOcclusion.uniforms.bias = 0.1;
       viewer.scene.postProcessStages.ambientOcclusion.uniforms.lengthCap = 0.25;
       viewer.scene.postProcessStages.ambientOcclusion.uniforms.stepSize = 1.0;
       viewer.scene.postProcessStages.ambientOcclusion.uniforms.frustumLength = 1000.0;
     }
     
-    // Smooth reflection glowing effects for high metallic materials
     viewer.scene.postProcessStages.bloom.enabled = true;
     viewer.scene.postProcessStages.bloom.uniforms.glowOnly = false;
     viewer.scene.postProcessStages.bloom.uniforms.contrast = 118.0;
@@ -269,10 +281,31 @@
 
     viewer.resolutionScale = window.devicePixelRatio || 1.0;
 
+    // Shader control pipeline logic
+    function updateShaderConfig(type, val) {
+      const numVal = parseFloat(val);
+      if (isNaN(numVal)) return;
+
+      if (type === 'ssao') {
+        document.getElementById('ssaoSlider').value = numVal;
+        document.getElementById('ssaoInput').value = numVal.toFixed(1);
+        if (viewer.scene.postProcessStages.ambientOcclusion) {
+          viewer.scene.postProcessStages.ambientOcclusion.enabled = numVal > 0;
+          viewer.scene.postProcessStages.ambientOcclusion.uniforms.intensity = numVal;
+        }
+      }
+      if (type === 'bloom') {
+        document.getElementById('bloomSlider').value = numVal;
+        document.getElementById('bloomInput').value = Math.round(numVal);
+        viewer.scene.postProcessStages.bloom.enabled = numVal > 0;
+        viewer.scene.postProcessStages.bloom.uniforms.contrast = numVal;
+      }
+    }
+
     function loadOSMBuildings() {
       Cesium.createOsmBuildingsAsync().then((tileset) => { 
         tileset.maximumScreenSpaceError = 1.0; 
-        tileset.maximumMemoryUsage = 4096; // Overclock storage processing buffers
+        tileset.maximumMemoryUsage = 4096; 
         tileset.skipLevelOfDetail = false;     
         tileset.cullRequestsWhileMoving = false; 
         tileset.preloadFlightDestinations = true;
@@ -490,7 +523,7 @@
       let modelConfig = {
         scale: new Cesium.CallbackProperty(() => profileData.modelScale, false),
         runAnimations: false,
-        shadows: Cesium.ShadowMode.ENABLED // Dynamic shadow configurations
+        shadows: Cesium.ShadowMode.ENABLED 
       };
 
       if (loadedBlobURL) {
