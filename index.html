@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs2</title>
+  <title>glwfs1</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -211,21 +211,22 @@
     viewer.scene.globe.depthTestAgainstTerrain = false;
     viewer.shadows = false;
     
-    // HIGH RENDERS / AGGRESSIVE PRE-CACHE ENGINE CONFIGURATION
-    viewer.scene.globe.maximumScreenSpaceError = 1; // Force terrain chunks to maximize detail far off
-    viewer.scene.globe.loadingDescendantLimit = 40;  // Don't cap simultaneous chunk generation paths
-    viewer.scene.globe.preloadAncestors = true;     // Pre-load low-res structures to prevent popping
+    // FORCE CRITICAL AGGRESSIVE HORIZON RENDER FOR TERRAIN BASES
+    viewer.scene.globe.maximumScreenSpaceError = 1;
+    viewer.scene.globe.loadingDescendantLimit = 60;
+    viewer.scene.globe.preloadAncestors = true;
 
-    // LOAD OSM BUILDINGS WITH MAX LOAD VALUES AND NO COMPLEX TEXTURES
+    // HIGH END PERFORMANCE DATA TUNING - FORCE LOADING RADII OUTWARD
     Cesium.createOsmBuildingsAsync().then((tileset) => { 
-      // Turn error rate down to make the tileset render assets much further away from current screen frame
-      tileset.maximumScreenSpaceError = 4; 
+      tileset.maximumScreenSpaceError = 2; // Drastically drops pixel error threshold to force rendering distant objects
+      tileset.maximumMemoryUsage = 2048;   // Opens memory allocations up to 2GB cache buffer limit
+      tileset.skipLevelOfDetail = true;     // Bypasses steps in hierarchy tree to snap meshes instantly 
+      tileset.cullRequestsWhileMoving = false; // Forces download channels to stay open while flight moves fast
       tileset.preloadFlightDestinations = true;
-      tileset.progressiveResolutionHeightFraction = 0.5;
       
-      // Inject untextured style matrix rule explicitly bypassing heavy procedural layout skins
+      // Strict untextured unlit shape output blocks
       tileset.style = new Cesium.Cesium3DTileStyle({
-        color: 'color("white", 0.85)'
+        color: 'color("white", 0.90)'
       });
 
       viewer.scene.primitives.add(tileset); 
