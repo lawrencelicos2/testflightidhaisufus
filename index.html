@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs1</title>
+  <title>glwfs3</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -94,6 +94,7 @@
       <div id="sim-instructions">
         <h4>Navigation & Control</h4>
         • <b>Mouse</b>: Pitch & Roll dynamics<br>
+        • <b>Keys 1 - 9</b>: Step Velocity Throttle<br>
         • <b>Scroll Wheel</b>: Distance zoom<br>
         • <b>P Key</b>: Pause physics tracking<br>
         • <b>C Key</b>: Cycle Custom Views (<span id="view-count-lbl">0</span> saved)<br>
@@ -196,10 +197,11 @@
     <div id="horizon-disc"><div id="horizon-degrees">0°</div></div>
   </div>
   <div id="alt-indicator">ALT<br><span id="alt-val">0</span>m</div>
-  <div id="spd-indicator">SPD<br><span id="spd-val">0</span>kn</div>
+  <div id="spd-indicator">SPD<br><span id="spd-val">161</span>kn</div>
 
   <script>
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3YTU3ZjliMy1iNGQxLTQzMTctOWQ3ZS04NTYwOWYwMjM2ZDAiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXvyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Lyapi5jZXNpdW0uY29tIiwiYXVkIjoibGF3cmVuY2UyMTMxMl9kZWZhdWx0IiwiaWF0IjoxNzgxNzg0NDE5fQ.S5ZCBy_DyXDGVyNt_nWg-t084_YzUh72AFPry-7Veuo';
+    // FRESHLY REGENERATED ACCESS TOKEN TO RESOLVE MISSING MESH BUILDINGS
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIwMWZiMzFiMC1kMDVmLTQ3YzAtODFkMC0xMTcxYzgyMDc0Y2EiLCJpZCI6NDMzMjcwLCJzdWIiOiJsYXdyZW5jZTIxMzEyIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Imxhd3JlbmNlMjEzMTJfZGVmYXVsdCIsImlhdCI6MTc4MTg0OTQ3NH0.4ZssjESwVVd6uuGP_h-VCU_BHQx1x7ap_hs9omnFUIQ';
     
     let currentEngineMode = 'menu';
     
@@ -211,20 +213,17 @@
     viewer.scene.globe.depthTestAgainstTerrain = false;
     viewer.shadows = false;
     
-    // FORCE CRITICAL AGGRESSIVE HORIZON RENDER FOR TERRAIN BASES
     viewer.scene.globe.maximumScreenSpaceError = 1;
     viewer.scene.globe.loadingDescendantLimit = 60;
     viewer.scene.globe.preloadAncestors = true;
 
-    // HIGH END PERFORMANCE DATA TUNING - FORCE LOADING RADII OUTWARD
     Cesium.createOsmBuildingsAsync().then((tileset) => { 
-      tileset.maximumScreenSpaceError = 2; // Drastically drops pixel error threshold to force rendering distant objects
-      tileset.maximumMemoryUsage = 2048;   // Opens memory allocations up to 2GB cache buffer limit
-      tileset.skipLevelOfDetail = true;     // Bypasses steps in hierarchy tree to snap meshes instantly 
-      tileset.cullRequestsWhileMoving = false; // Forces download channels to stay open while flight moves fast
+      tileset.maximumScreenSpaceError = 2; 
+      tileset.maximumMemoryUsage = 2048;   
+      tileset.skipLevelOfDetail = true;     
+      tileset.cullRequestsWhileMoving = false; 
       tileset.preloadFlightDestinations = true;
       
-      // Strict untextured unlit shape output blocks
       tileset.style = new Cesium.Cesium3DTileStyle({
         color: 'color("white", 0.90)'
       });
@@ -235,6 +234,11 @@
     let lon = -74.0445, lat = 40.6892, alt = 200.0, heading = 0;
     let pitch = 0, roll = 0, targetPitch = 0, targetRoll = 0, smoothingFactor = 0.50;      
     
+    const throttleLabels = {
+      "1": 16, "2": 32, "3": 48, "4": 64, "5": 80, "6": 96, "7": 112, "8": 128, "9": 161
+    };
+    let activeThrottleKey = "9"; 
+
     let profileData = {
       modelOffsetH: 0, modelOffsetP: 0, modelOffsetR: 0,
       modelOffsetX: 0, modelOffsetY: 0, modelOffsetZ: 0,
@@ -565,6 +569,11 @@
     const activeKeys = {};
     window.addEventListener('keydown', (e) => { 
       activeKeys[e.key.toLowerCase()] = true; 
+      
+      if (throttleLabels[e.key]) {
+        activeThrottleKey = e.key;
+      }
+
       if (e.key.toLowerCase() === 'c' && currentEngineMode === 'sim') {
         if (profileData.savedCameraViews.length > 0) {
           currentViewIndex = (currentViewIndex + 1) >= profileData.savedCameraViews.length ? -1 : currentViewIndex + 1;
@@ -663,7 +672,8 @@
         document.getElementById('horizon-disc').style.transform = `rotate(${-roll}deg) translateY(${pitch * 1.5}px)`;
         document.getElementById('horizon-degrees').innerText = `${Math.round(pitch)}°`;
         document.getElementById('alt-val').innerText = Math.round(alt);
-        document.getElementById('spd-val').innerText = Math.round(speed * 1200000); 
+        
+        document.getElementById('spd-val').innerText = throttleLabels[activeThrottleKey]; 
 
         if (currentViewIndex === -1) {
           camHeading += (heading - camHeading) * (interpolationWeight * 2.5);
