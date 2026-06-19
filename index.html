@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs</title>
+  <title>glwfs2</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -209,11 +209,25 @@
     });
     
     viewer.scene.globe.depthTestAgainstTerrain = false;
-    
-    // REMOVED: Shadow environment variables deactivated
     viewer.shadows = false;
     
+    // HIGH RENDERS / AGGRESSIVE PRE-CACHE ENGINE CONFIGURATION
+    viewer.scene.globe.maximumScreenSpaceError = 1; // Force terrain chunks to maximize detail far off
+    viewer.scene.globe.loadingDescendantLimit = 40;  // Don't cap simultaneous chunk generation paths
+    viewer.scene.globe.preloadAncestors = true;     // Pre-load low-res structures to prevent popping
+
+    // LOAD OSM BUILDINGS WITH MAX LOAD VALUES AND NO COMPLEX TEXTURES
     Cesium.createOsmBuildingsAsync().then((tileset) => { 
+      // Turn error rate down to make the tileset render assets much further away from current screen frame
+      tileset.maximumScreenSpaceError = 4; 
+      tileset.preloadFlightDestinations = true;
+      tileset.progressiveResolutionHeightFraction = 0.5;
+      
+      // Inject untextured style matrix rule explicitly bypassing heavy procedural layout skins
+      tileset.style = new Cesium.Cesium3DTileStyle({
+        color: 'color("white", 0.85)'
+      });
+
       viewer.scene.primitives.add(tileset); 
     });
 
@@ -611,7 +625,6 @@
         }
 
         targetPitch = (-mouseY * 45); 
-        // RESTORED: Original mouse calculation mappings
         targetRoll = (mouseX * 45);  
         
         let interpolationWeight = 1.0 - smoothingFactor;
@@ -646,7 +659,6 @@
           }
         }
 
-        // RESTORED: Original UI layout matrix mapping
         document.getElementById('horizon-disc').style.transform = `rotate(${-roll}deg) translateY(${pitch * 1.5}px)`;
         document.getElementById('horizon-degrees').innerText = `${Math.round(pitch)}°`;
         document.getElementById('alt-val').innerText = Math.round(alt);
