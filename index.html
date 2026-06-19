@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs</title>
+  <title>glwfs1</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -224,7 +224,7 @@
 
     let propRotationAngle = 0;
     let currentViewIndex = -1;
-    let camHeading = 0, camDistance = 40, isPaused = false, loadedBlobURL = null;
+    let camHeading = 0, camDistance = 40, camPitchOffset = -15, isPaused = false, loadedBlobURL = null;
     
     let editorCamPosLocal = new Cesium.Cartesian3(0, -30, 2); 
     let editorCamYaw = 0.0;  
@@ -424,12 +424,12 @@
     }
 
     function captureCameraView() {
+      // Treat distance directly as local coordinate range offsets to feed LookAt parameters seamlessly
+      const calculatedDistance = Cesium.Cartesian3.distance(new Cesium.Cartesian3(0,0,0), editorCamPosLocal);
       const savedView = {
-        heading: editorCamYaw,
-        pitch: editorCamPitch,
-        localX: editorCamPosLocal.x,
-        localY: editorCamPosLocal.y,
-        localZ: editorCamPosLocal.z
+        headingOffset: Cesium.Math.toDegrees(editorCamYaw),
+        pitchOffset: Cesium.Math.toDegrees(editorCamPitch),
+        distance: calculatedDistance > 5 ? calculatedDistance : 40
       };
       
       profileData.savedCameraViews.push(savedView);
@@ -530,8 +530,18 @@
       if (e.key.toLowerCase() === 'c' && currentEngineMode === 'sim') {
         if (profileData.savedCameraViews.length > 0) {
           currentViewIndex = (currentViewIndex + 1) >= profileData.savedCameraViews.length ? -1 : currentViewIndex + 1;
+          
+          if (currentViewIndex !== -1) {
+            const currentSetup = profileData.savedCameraViews[currentViewIndex];
+            camDistance = currentSetup.distance || 40;
+            camPitchOffset = currentSetup.pitchOffset !== undefined ? currentSetup.pitchOffset : -15;
+          } else {
+            camDistance = 40;
+            camPitchOffset = -15;
+          }
+
           const alertBox = document.getElementById('view-alert');
-          alertBox.innerText = currentViewIndex === -1 ? "View: Standard Follow" : `View: Custom Cockpit Cam #${currentViewIndex + 1}`;
+          alertBox.innerText = currentViewIndex === -1 ? "View: Standard Follow" : `View: Custom Position Cam #${currentViewIndex + 1}`;
           alertBox.style.display = 'block';
           setTimeout(() => { alertBox.style.display = 'none'; }, 1500);
         }
@@ -595,7 +605,7 @@
 
       if (currentEngineMode === 'sim') {
         if (isPaused) {
-          viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
+          viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(camPitchOffset), camDistance));
           return;
         }
 
@@ -629,29 +639,17 @@
         document.getElementById('alt-val').innerText = Math.round(alt);
         document.getElementById('spd-val').innerText = Math.round(speed * 1200000); 
 
-        if (currentViewIndex === -1) {
-          let camSpeedMultiplier = interpolationWeight * 2.5; if (camSpeedMultiplier > 1.0) camSpeedMultiplier = 1.0;
-          camHeading += (heading - camHeading) * camSpeedMultiplier;
-          viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(-15), camDistance));
-        } else {
-          const matchedView = profileData.savedCameraViews[currentViewIndex];
-          
-          // Use Cesium orientation states to properly derive the aircraft local matrix transformations
-          const currentHPR = new Cesium.HeadingPitchRoll(Cesium.Math.toRadians(heading), Cesium.Math.toRadians(roll), Cesium.Math.toRadians(pitch));
-          const localToFixedMatrix = Cesium.Transforms.headingPitchRollToFixedFrame(currentPos, currentHPR);
-          
-          const offsetLocal = new Cesium.Cartesian3(matchedView.localX, matchedView.localY, matchedView.localZ);
-          const computedWorldPosition = Cesium.Matrix4.multiplyByPoint(localToFixedMatrix, offsetLocal, new Cesium.Cartesian3());
-          
-          viewer.camera.position = computedWorldPosition;
-          viewer.camera.setView({
-            orientation: {
-              heading: matchedView.heading + Cesium.Math.toRadians(heading),
-              pitch: matchedView.pitch + Cesium.Math.toRadians(pitch),
-              roll: Cesium.Math.toRadians(roll)
-            }
-          });
+        let targetCamHeading = heading;
+        if (currentViewIndex !== -1) {
+          const customSetup = profileData.savedCameraViews[currentViewIndex];
+          targetCamHeading += customSetup.headingOffset || 0;
         }
+
+        let camSpeedMultiplier = interpolationWeight * 2.5; if (camSpeedMultiplier > 1.0) camSpeedMultiplier = 1.0;
+        camHeading += (targetCamHeading - camHeading) * camSpeedMultiplier;
+
+        // Uses unified tracking matrices to prevent space tracking errors
+        viewer.camera.lookAt(currentPos, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(camHeading), Cesium.Math.toRadians(camPitchOffset), camDistance));
       }
     });
   </script>
