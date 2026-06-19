@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>glwfs8</title>
+  <title>glwfs9</title>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.142/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
@@ -243,7 +243,6 @@
     viewer.scene.globe.depthTestAgainstTerrain = false;
     viewer.shadows = false;
     
-    // Explicit scene constraints to eliminate layout drift and lock mesh coordinates to ground assets
     viewer.scene.globe.maximumScreenSpaceError = 1;
     viewer.scene.globe.loadingDescendantLimit = 120;
     viewer.scene.globe.preloadAncestors = true;
@@ -252,7 +251,6 @@
 
     function loadOSMBuildings() {
       Cesium.createOsmBuildingsAsync().then((tileset) => { 
-        // Synchronized coordinate tracking configuration
         tileset.maximumScreenSpaceError = 1.0; 
         tileset.maximumMemoryUsage = 2048;   
         tileset.skipLevelOfDetail = false;     
@@ -592,7 +590,7 @@
       roll = 0;
       targetPitch = 0;
       targetRoll = 0;
-      alt = 220.0; // Safely spawn back above core skyscraper thresholds
+      alt = 250.0; // Respawn clear of buildings
     }
 
     let isLeftMouseDown = false;
@@ -742,14 +740,22 @@
           if (pitch < 0.0) pitch = 0.0;
         }
 
-        // Direct architectural primitive mesh sampling system (Avoiding standard box hitboxes)
+        // Direct architectural primitive mesh sampling with exclusive geometry pass filters
         if (buildingsTileset && viewer.scene.clampToHeightSupported) {
           const cartographicCoords = Cesium.Cartographic.fromDegrees(lon, lat);
-          // Query explicit primitive intersection array coordinates at runtime position
+          
+          // CRITICAL FIX: Pass a strict primitive filter list containing ONLY the buildings tileset.
+          // This tells Cesium's depth sampler to explicitly ignore the custom aircraft model.
           const structuralHeight = viewer.scene.sampleHeight(cartographicCoords, [buildingsTileset]);
-          if (Cesium.defined(structuralHeight) && alt <= structuralHeight) {
-            triggerCrashState();
-            return;
+          
+          if (Cesium.defined(structuralHeight)) {
+            const distanceToRoofSystem = alt - structuralHeight;
+            
+            // Check if within the 9-meter ceiling threshold space
+            if (distanceToRoofSystem <= 9.0 && distanceToRoofSystem >= -9.0) {
+              triggerCrashState();
+              return;
+            }
           }
         }
 
